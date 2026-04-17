@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ToxiEvent v1.1 — Análisis de Brotes de Toxinfección Alimentaria</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script>
+  tailwind.config = { darkMode: 'class', theme: { extend: {
+    fontFamily: { display: ['Syne','sans-serif'], body: ['Instrument Sans','sans-serif'], mono: ['DM Mono','monospace'] }
+  }}}
+</script>
+<style>
+  * { font-family: 'Instrument Sans', sans-serif; }
+  h1,h2,h3,.font-display { font-family: 'Syne', sans-serif; }
+  .mono { font-family: 'DM Mono', monospace; }
+
+/* ── PALETA REFINADA V2 (Acentos Vibrantes) ── */
+  :root {
+    --bg:#0f172a; --surface:#1e293b; --surface2:#334155; --border:#475569;
+    --text:#f8fafc; --text2:#c9daf2; --accent:#8cd4f5; --accent2:#7dd3fc;
+    --muted:#91a6c4; --danger:#f43f5e; --warn:#fbbf24; --sig:#10b981;
+  }
+
+  html:not(.dark) {
+    --bg:#f8fafc; --surface:#ffffff; --surface2:#f1f5f9; --border:#e2e8f0;
+    --text:#0f172a; --text2:#475569; --accent:#b2c8ed; --accent2:#9cc5f7;
+    --muted:#667180; --danger:#ef4444; --warn:#f59e0b; --sig:#10b981;
+  }
+
+  body { background:var(--bg); color:var(--text); transition:background .3s,color .3s; min-height:100vh; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; }
+  .card2 { background:var(--surface2); border:1px solid var(--border); border-radius:8px; }
+  .inp { background:var(--surface2); border:1px solid var(--border); color:var(--text); border-radius:6px; padding:7px 11px; width:100%; outline:none; transition:border-color .2s; font-size:14px; }
+  .inp::placeholder { color:var(--muted); }
+  .inp:focus { border-color:var(--accent); box-shadow:0 0 0 2px rgba(96,165,250,.2); }
+  select.inp option { background:var(--surface); color:var(--text); }
+  .btn-primary { background:var(--accent); color:#0f172a; border-radius:7px; padding:8px 18px; font-weight:700; cursor:pointer; transition:opacity .2s; border:none; font-size:14px; }
+  .btn-primary:hover { opacity:.88; }
+  .btn-secondary { background:var(--surface2); border:1px solid var(--border); color:var(--text2); border-radius:7px; padding:8px 14px; font-weight:500; cursor:pointer; transition:all .2s; font-size:13px; }
+  .btn-secondary:hover { border-color:var(--accent); color:var(--accent); }
+  .btn-danger { background:transparent; border:1px solid var(--danger); color:var(--danger); border-radius:5px; padding:3px 8px; font-size:12px; cursor:pointer; }
+  .tab { padding:11px 22px; cursor:pointer; border-bottom:2px solid transparent; font-weight:700; transition:all .2s; color:var(--muted); font-family:'Syne',sans-serif; letter-spacing:.03em; font-size:13px; }
+  .tab.active { border-bottom-color:var(--accent); color:var(--accent); }
+  .toast { position:fixed; bottom:24px; right:24px; background:var(--accent); color:#0f172a; padding:12px 20px; border-radius:8px; font-weight:700; z-index:9999; transform:translateY(80px); opacity:0; transition:all .3s; pointer-events:none; max-width:300px; }
+  .toast.show { transform:translateY(0); opacity:1; }
+  .sig { color:var(--sig); font-weight:700; }
+  .metric-card { background:linear-gradient(135deg,var(--surface),var(--surface2)); border:1px solid var(--border); border-radius:14px; padding:20px; }
+  .tag { display:inline-block; background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:3px 9px; font-size:12px; margin:2px; color:var(--text2); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { background:var(--surface2); color:var(--text2); padding:9px 10px; text-align:left; border-bottom:2px solid var(--border); font-family:'Syne',sans-serif; font-size:11px; letter-spacing:.05em; text-transform:uppercase; }
+  td { padding:8px 10px; border-bottom:1px solid var(--border); color:var(--text); }
+  tr:hover td { background:rgba(96,165,250,.06); }
+  .badge { display:inline-block; padding:2px 8px; border-radius:99px; font-size:11px; font-weight:700; }
+  .badge-blue { background:rgba(96,165,250,.18); color:#93c5fd; }
+  .badge-green { background:rgba(52,211,153,.18); color:#6ee7b7; }
+  .badge-red { background:rgba(248,113,113,.18); color:#fca5a5; }
+  .badge-yellow { background:rgba(251,191,36,.18); color:#fcd34d; }
+  .scrollbar-thin::-webkit-scrollbar { height:4px; width:4px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background:transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+  .section-header { font-family:'Syne',sans-serif; font-weight:700; font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:6px; }
+  label { color:var(--text2); }
+
+  /* ── PDF LIGHT OVERRIDE ── */
+  @media print { body { background:#fff !important; color:#000 !important; } }
+</style>
+</head>
+<body>
+
+<div id="toast" class="toast"></div>
+
+<!-- ═══ HEADER ═══ -->
+<header class="card sticky top-0 z-50 px-4 sm:px-8" style="border-radius:0;border-left:none;border-right:none;border-top:none">
+  <div class="max-w-7xl mx-auto flex items-center justify-between h-14">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:var(--accent)">
+        <svg class="w-5 h-5" style="color:#0f172a" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+      </div>
+      <span class="font-display font-800 text-lg tracking-tight" style="color:var(--text)">ToxiEvent</span>
+      <span class="hidden sm:inline-block text-xs mono px-2 py-0.5 rounded" style="background:var(--surface2);color:var(--accent);border:1px solid var(--border)">v1.1</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="event-name-badge" class="hidden sm:block text-xs px-3 py-1 rounded-full mono" style="background:var(--surface2);color:var(--accent);border:1px solid var(--border)"></span>
+      <button onclick="saveProject()" class="btn-secondary text-xs" title="Guardar proyecto JSON">💾 Guardar</button>
+      <button onclick="document.getElementById('load-json-input').click()" class="btn-secondary text-xs" title="Cargar proyecto JSON">📂 Cargar</button>
+      <button onclick="toggleDark()" class="w-8 h-8 rounded-lg flex items-center justify-center btn-secondary" title="Modo claro/oscuro" style="font-size:16px">☀</button>
+    </div>
+  </div>
+  <div class="max-w-7xl mx-auto flex border-t" style="border-color:var(--border)">
+    <button class="tab active" onclick="showTab(0)">① Configuración</button>
+    <button class="tab" onclick="showTab(1)">② Outcomes</button>
+    <button class="tab" onclick="showTab(2)">③ Análisis</button>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+<!-- ═══════════════════ TAB 0 CONFIGURACIÓN ═══════════════════ -->
+<div id="tab-0">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <div class="card p-5 space-y-4">
+      <div class="section-header">Identificación del Evento</div>
+      <div>
+        <label class="text-xs font-600 block mb-1">Nombre del evento</label>
+        <input id="ev-name" class="inp" placeholder="Ej: Banquete Ayuntamiento 2026" oninput="saveData()"/>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs font-600 block mb-1">Fecha y hora</label>
+          <input id="ev-date" type="datetime-local" class="inp" oninput="saveData()"/>
+        </div>
+        <div>
+          <label class="text-xs font-600 block mb-1">Código interno</label>
+          <input id="ev-code" class="inp" placeholder="EV-2026-001" oninput="saveData()"/>
+        </div>
+      </div>
+    </div>
+
+    <div class="card p-5 space-y-3">
+      <div class="section-header">Síntomas</div>
+      <div class="flex gap-2 flex-wrap">
+        <input id="new-symptom" class="inp flex-1 min-w-0" placeholder="Nuevo síntoma..." onkeydown="if(event.key==='Enter')addSymptom()"/>
+        <button class="btn-primary" onclick="addSymptom()">+ Añadir</button>
+        <button class="btn-secondary text-xs" onclick="importCSV('symptom')">CSV</button>
+        <button class="btn-secondary text-xs" title="Restaurar predeterminados" onclick="restoreDefaultSymptoms()">↺</button>
+      </div>
+      <div id="symptom-list" class="flex flex-wrap gap-2 min-h-8"></div>
+    </div>
+
+    <div class="card p-5 space-y-3">
+      <div class="section-header">Personas expuestas</div>
+      <div class="flex gap-2">
+        <input id="new-person" class="inp" placeholder="Nombre o ID..." onkeydown="if(event.key==='Enter')addPerson()"/>
+        <button class="btn-primary whitespace-nowrap" onclick="addPerson()">+ Añadir</button>
+        <button class="btn-secondary text-xs" onclick="importCSV('person')">CSV</button>
+      </div>
+      <div id="person-list" class="space-y-1 max-h-48 overflow-y-auto scrollbar-thin"></div>
+      <div class="text-xs mono" style="color:var(--muted)"><span id="person-count">0</span> personas registradas</div>
+    </div>
+
+    <div class="card p-5 space-y-3">
+      <div class="section-header">Alimentos servidos</div>
+      <div class="flex gap-2">
+        <input id="new-food" class="inp" placeholder="Nombre del alimento..." onkeydown="if(event.key==='Enter')addFood()"/>
+        <button class="btn-primary whitespace-nowrap" onclick="addFood()">+ Añadir</button>
+        <button class="btn-secondary text-xs" onclick="importCSV('food')">CSV</button>
+      </div>
+      <div id="food-list" class="space-y-1 max-h-48 overflow-y-auto scrollbar-thin"></div>
+      <div class="text-xs mono" style="color:var(--muted)"><span id="food-count">0</span> alimentos registrados</div>
+    </div>
+
+  </div>
+  <div class="flex justify-end mt-4">
+    <button class="btn-primary px-6 py-2.5 text-base" onclick="showTab(1)">Continuar → Outcomes</button>
+  </div>
+</div>
+
+<!-- ═══════════════════ TAB 1 OUTCOMES ═══════════════════ -->
+<div id="tab-1" class="hidden">
+
+  <div class="card p-4 flex flex-wrap gap-3 items-center justify-between mb-4">
+    <div class="flex gap-2 flex-wrap">
+      <button class="btn-secondary text-sm" onclick="openBulkFill()">✦ Rellenado masivo</button>
+      <button class="btn-secondary text-sm" onclick="exportOutcomesCSV()">↓ CSV</button>
+    </div>
+    <div class="text-xs mono" style="color:var(--muted)"><span id="outcomes-filled">0</span> / <span id="outcomes-total">0</span> registros con datos</div>
+  </div>
+
+  <!-- Modal Bulk -->
+  <div id="bulk-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(0,0,0,.75)">
+    <div class="card p-6 w-full max-w-lg mx-4 space-y-4" style="max-height:90vh;overflow-y:auto">
+      <div class="flex justify-between items-center">
+        <h3 class="font-display font-700 text-lg">Rellenado Masivo</h3>
+        <button onclick="closeBulk()" class="btn-danger">✕</button>
+      </div>
+      <p class="text-xs" style="color:var(--muted)">Selecciona personas y aplica valores comunes.</p>
+      <div id="bulk-person-checkboxes" class="space-y-1 max-h-40 overflow-y-auto scrollbar-thin card2 p-3"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="text-xs block mb-1">Incubación (h)</label><input id="bulk-incubation" type="number" step="0.5" class="inp" placeholder="—"/></div>
+        <div><label class="text-xs block mb-1">Duración síntomas (h)</label><input id="bulk-duration" type="number" step="0.5" class="inp" placeholder="—"/></div>
+      </div>
+      <div><label class="text-xs block mb-1">Primer síntoma</label><select id="bulk-first-symptom" class="inp"></select></div>
+      <div><label class="text-xs block mb-1">Alimentos consumidos</label><div id="bulk-food-checks" class="flex flex-wrap gap-2"></div></div>
+      <div><label class="text-xs block mb-1">Síntomas presentados</label><div id="bulk-symptom-checks" class="flex flex-wrap gap-2"></div></div>
+      <div class="flex gap-3 pt-2">
+        <button class="btn-primary flex-1" onclick="applyBulkFill()">Aplicar a seleccionados</button>
+        <button class="btn-secondary" onclick="closeBulk()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card overflow-hidden">
+    <div class="overflow-x-auto scrollbar-thin">
+      <div id="outcomes-table-container"></div>
+    </div>
+  </div>
+
+  <div class="flex justify-end mt-4">
+    <button class="btn-primary px-6 py-2.5 text-base" onclick="showTab(2);runAnalysis()">Ejecutar Análisis Completo →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════ TAB 2 ANÁLISIS ═══════════════════ -->
+<div id="tab-2" class="hidden">
+  <div class="flex flex-wrap gap-3 mb-6 items-center justify-between">
+    <button class="btn-primary px-6 py-2.5 text-base font-display" onclick="runAnalysis()">⚡ Ejecutar Análisis Completo</button>
+    <div class="flex gap-2">
+      <button class="btn-secondary" onclick="exportExcel()">↓ Excel</button>
+      <button class="btn-secondary" onclick="exportPDF()">↓ PDF (completo)</button>
+    </div>
+  </div>
+  <div id="analysis-output" class="space-y-6"></div>
+</div>
+
+</main>
+
+<!-- FOOTER CRÉDITOS -->
+<footer class="mt-12 border-t py-6 px-6" style="border-color:var(--border)">
+  <div class="max-w-7xl mx-auto text-center space-y-1">
+    <div class="text-xs font-600" style="color:var(--text2)">José Manuel Fernández Carreira</div>
+    <div class="text-xs" style="color:var(--muted)">Servicio de Vigilancia Epidemiológica · Dirección General de Salud Pública</div>
+    <div class="text-xs" style="color:var(--muted)">Consejería de Salud · Principado de Asturias · Abril 2026</div>
+  </div>
+</footer>
+
+<!-- Hidden inputs -->
+<input type="file" id="file-import" accept=".csv,.txt" class="hidden" onchange="handleFileImport(event)"/>
+<input type="file" id="load-json-input" accept=".json" class="hidden" onchange="loadProject(event)"/>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════
+let appData = {
+  event: { name:'', date:'', code:'' },
+  persons: [],
+  foods: [],
+  symptoms: ['Vómitos','Diarrea','Fiebre'],
+  outcomes: {}
+};
+let importTarget = '';
+let chartInstances = {};
+
+// ════════════════════════════════════════════════════════════
+// PATHOGENS TABLE (from image + references)
+// ════════════════════════════════════════════════════════════
+const PATHOGENS = [
+  { name:'Intoxicación estafilocócica', short:'S. aureus (toxina)', cie:'005.0/A05.0', incMin:1, incMax:8, incTypical:2, duration:'1-2 d', clinic:'Náuseas, vómitos intensos, dolor abdominal, postración, diarrea', symptoms:['vómitos','náuseas','diarrea','dolor abdominal'], vehicles:['alimentos','cremas','mayonesa','lácteos'], keyFeatures:'Vómitos muy intensos, inicio rápido, sin fiebre' },
+  { name:'Intoxicación por C. perfringens', short:'C. perfringens', cie:'005.2/A05.2', incMin:6, incMax:24, incTypical:10, duration:'1 d', clinic:'Cólico abdominal, diarrea, náuseas (sin fiebre)', symptoms:['diarrea','dolor abdominal','náuseas'], vehicles:['carnes cocinadas','guisos','alimentos'], keyFeatures:'Sin vómitos prominentes, sin fiebre, cólico severo' },
+  { name:'Intoxicación por B. cereus (emético)', short:'B. cereus (emético)', cie:'005.8/A05.4', incMin:1, incMax:6, incTypical:3, duration:'1 d', clinic:'Náuseas, vómitos, cólico, diarrea (sin fiebre)', symptoms:['vómitos','náuseas','diarrea'], vehicles:['arroz','cereales','alimentos'], keyFeatures:'Arroz recalentado, vómitos, inicio rápido' },
+  { name:'B. cereus (diarreico)', short:'B. cereus (diarreico)', cie:'005.8/A05.4', incMin:6, incMax:24, incTypical:10, duration:'1 d', clinic:'Diarrea acuosa, cólico, sin fiebre', symptoms:['diarrea','dolor abdominal'], vehicles:['carnes','verduras','salsas'], keyFeatures:'Forma diarreica, incubación más larga' },
+  { name:'Salmonelosis', short:'Salmonella spp.', cie:'003/A02.0', incMin:6, incMax:72, incTypical:24, duration:'variable', clinic:'Cefalea, dolor abdominal, diarrea, náuseas, vómitos, fiebre', symptoms:['fiebre','diarrea','vómitos','náuseas','cefalea'], vehicles:['huevos','carne de ave','alimentos animales','agua'], keyFeatures:'Fiebre + diarrea + vómitos, huevos/aves' },
+  { name:'Gastroenteritis por Norovirus', short:'Norovirus', cie:'078.8/A08.1', incMin:10, incMax:50, incTypical:24, duration:'24-48 h', clinic:'Náuseas, vómitos, diarrea, fiebre leve', symptoms:['vómitos','náuseas','diarrea','fiebre'], vehicles:['agua','persona-persona','alimentos','bivalvos'], keyFeatures:'Muy contagioso, vómitos explosivos, brotes en eventos' },
+  { name:'Botulismo', short:'C. botulinum', cie:'005.1/A05.1', incMin:12, incMax:36, incTypical:18, duration:'meses', clinic:'Parálisis descendente (ocular, faríngea, respiratoria)', symptoms:['parálisis','diplopía','disfagia'], vehicles:['conservas','vegetales enlatados','alimentos'], keyFeatures:'Síntomas neurológicos, conservas caseras' },
+  { name:'E. coli ETEC', short:'E. coli ETEC', cie:'008.0/A04.1', incMin:10, incMax:12, incTypical:10, duration:'5 d', clinic:'Diarrea acuosa, dolor abdominal, vómitos', symptoms:['diarrea','dolor abdominal','vómitos'], vehicles:['agua','alimentos'], keyFeatures:'Diarrea del viajero, sin sangre' },
+  { name:'E. coli EHEC O157:H7', short:'E. coli O157:H7', cie:'008.0/A04.3', incMin:72, incMax:120, incTypical:96, duration:'variable', clinic:'Diarrea con sangre, cólico, SUH', symptoms:['diarrea sanguinolenta','dolor abdominal','diarrea'], vehicles:['carne picada','leche','agua'], keyFeatures:'Diarrea hemorrágica, carne poco cocinada' },
+  { name:'Enteritis por Campylobacter', short:'Campylobacter', cie:'008.4/A04.5', incMin:24, incMax:240, incTypical:72, duration:'2-5 d', clinic:'Diarrea con sangre y moco, dolor abdominal, fiebre, vómitos', symptoms:['diarrea','fiebre','vómitos','dolor abdominal'], vehicles:['carne de ave','leche','agua'], keyFeatures:'Fiebre alta, diarrea hemorrágica, aves' },
+  { name:'Enteritis por V. parahaemolyticus', short:'V. parahaemolyticus', cie:'005.4/A05.3', incMin:4, incMax:30, incTypical:12, duration:'1-7 d', clinic:'Diarrea acuosa, dolor abdominal, náuseas', symptoms:['diarrea','dolor abdominal','náuseas'], vehicles:['marisco','pescado','alimentos marinos'], keyFeatures:'Mariscos crudos o poco cocinados' },
+  { name:'Shigelosis', short:'Shigella', cie:'004/A03', incMin:12, incMax:96, incTypical:48, duration:'4-7 d', clinic:'Diarrea con sangre y moco, fiebre, náuseas, vómitos, tenesmo', symptoms:['diarrea','fiebre','náuseas','vómitos'], vehicles:['persona-persona','alimentos','leche','agua'], keyFeatures:'Tenesmo rectal, disentería, persona-persona' },
+  { name:'Listeriosis', short:'Listeria monocytogenes', cie:'027.0/A32', incMin:72, incMax:3600, incTypical:504, duration:'variable', clinic:'Meningoencefalitis, septicemia, aborto', symptoms:['fiebre','meningitis'], vehicles:['lácteos','vegetales','comidas preparadas'], keyFeatures:'Embarazadas/inmunodeprimidos, incubación muy larga' },
+  { name:'Hepatitis A', short:'Hepatitis A', cie:'070.1/B15', incMin:360, incMax:1440, incTypical:720, duration:'semanas-meses', clinic:'Fiebre, malestar, anorexia, ictericia', symptoms:['fiebre','ictericia','malestar'], vehicles:['agua','alimentos','persona-persona'], keyFeatures:'Ictericia, incubación muy larga (2-6 semanas)' },
+  { name:'Triquinosis', short:'Trichinella', cie:'124/B75', incMin:120, incMax:360, incTypical:192, duration:'variable', clinic:'Fiebre muscular, edema palpebral, escalofríos, diarrea', symptoms:['fiebre','diarrea','mialgia'], vehicles:['carne de cerdo sin control'], keyFeatures:'Edema periorbitario, mialgias, cerdo sin control' },
+  { name:'Envenenamiento por escómbridos', short:'Histamina (escómbridos)', cie:'988.0/T61.2', incMin:0.08, incMax:2, incTypical:0.5, duration:'12 h', clinic:'Parestesias bucales, flush, náuseas, vómitos, cefalea, rash', symptoms:['náuseas','vómitos','rash','cefalea','fiebre'], vehicles:['pescados escómbridos','atún','caballa'], keyFeatures:'Inicio en minutos, flush, parestesias, pescado' },
+  { name:'Envenenamiento paralítico por moluscos', short:'Toxina paralítica moluscos', cie:'998.0/T61.2', incMin:0.08, incMax:3, incTypical:0.5, duration:'días', clinic:'Síntomas gastrointestinales, parestesias boca y extremidades', symptoms:['parestesias','náuseas','vómitos'], vehicles:['moluscos bivalvos'], keyFeatures:'Parestesias neurológicas, bivalvos' },
+  { name:'Yersiniosis', short:'Yersinia', cie:'027.8/A04.6', incMin:72, incMax:168, incTypical:96, duration:'3-7 d', clinic:'Diarrea, fiebre, dolor abdominal, adenitis mesentérica', symptoms:['diarrea','fiebre','dolor abdominal'], vehicles:['carne porcino','agua','persona-persona'], keyFeatures:'Simula apendicitis, fiebre prolongada' },
+  { name:'Enteritis por Rotavirus', short:'Rotavirus', cie:'008.8/A08.0', incMin:24, incMax:72, incTypical:48, duration:'días', clinic:'Vómitos, fiebre, diarrea acuosa', symptoms:['vómitos','diarrea','fiebre'], vehicles:['persona-persona','agua'], keyFeatures:'Principalmente niños, temporada invernal' }
+];
+
+const PRIMARY_SYMPTOMS = ['vómitos','diarrea','fiebre']; // síntomas elementales para alimento más implicado
+
+// ════════════════════════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════════════════════════
+function showToast(msg, ms=2800) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), ms);
+}
+function toggleDark() {
+  document.documentElement.classList.toggle('dark');
+  localStorage.setItem('toxievent_dark', document.documentElement.classList.contains('dark'));
+}
+function saveData() {
+  appData.event.name = document.getElementById('ev-name').value;
+  appData.event.date = document.getElementById('ev-date').value;
+  appData.event.code = document.getElementById('ev-code').value;
+  localStorage.setItem('toxievent_data', JSON.stringify(appData));
+  updateEventBadge();
+}
+function loadData() {
+  const saved = localStorage.getItem('toxievent_data');
+  if (saved) { try { appData = JSON.parse(saved); } catch(e){} }
+  const isDark = localStorage.getItem('toxievent_dark') !== 'false';
+  if (!isDark) document.documentElement.classList.remove('dark');
+  document.getElementById('ev-name').value = appData.event.name||'';
+  document.getElementById('ev-date').value = appData.event.date||'';
+  document.getElementById('ev-code').value = appData.event.code||'';
+  renderSymptoms(); renderPersons(); renderFoods(); updateEventBadge();
+}
+function updateEventBadge() {
+  const b = document.getElementById('event-name-badge');
+  if (appData.event.name) { b.textContent = appData.event.name; b.classList.remove('hidden'); }
+  else b.classList.add('hidden');
+}
+
+// ════════════════════════════════════════════════════════════
+// SAVE / LOAD PROJECT JSON
+// ════════════════════════════════════════════════════════════
+function saveProject() {
+  const name = (appData.event.code || 'toxievent') + '_' + new Date().toISOString().slice(0,10);
+  const blob = new Blob([JSON.stringify(appData, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name + '.json';
+  a.click();
+  showToast('Proyecto guardado ✓');
+}
+function loadProject(e) {
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      appData = JSON.parse(ev.target.result);
+      localStorage.setItem('toxievent_data', JSON.stringify(appData));
+      document.getElementById('ev-name').value = appData.event.name||'';
+      document.getElementById('ev-date').value = appData.event.date||'';
+      document.getElementById('ev-code').value = appData.event.code||'';
+      renderSymptoms(); renderPersons(); renderFoods(); updateEventBadge();
+      showToast('Proyecto cargado ✓');
+    } catch(err) { showToast('Error al cargar JSON'); }
+  };
+  reader.readAsText(file);
+  e.target.value='';
+}
+
+// ════════════════════════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════════════════════════
+function showTab(n) {
+  [0,1,2].forEach(i => {
+    document.getElementById(`tab-${i}`).classList.toggle('hidden', i!==n);
+    document.querySelectorAll('.tab')[i].classList.toggle('active', i===n);
+  });
+  if(n===1) renderOutcomesTable();
+}
+
+// ════════════════════════════════════════════════════════════
+// SYMPTOMS
+// ════════════════════════════════════════════════════════════
+function addSymptom() {
+  const v = document.getElementById('new-symptom').value.trim();
+  if(!v || appData.symptoms.includes(v)) { if(v) showToast('Ya existe'); return; }
+  appData.symptoms.push(v);
+  document.getElementById('new-symptom').value='';
+  renderSymptoms(); saveData();
+}
+function removeSymptom(s) {
+  appData.symptoms = appData.symptoms.filter(x=>x!==s);
+  renderSymptoms(); saveData();
+}
+function restoreDefaultSymptoms() {
+  appData.symptoms = ['Vómitos','Diarrea','Fiebre'];
+  renderSymptoms(); saveData(); showToast('Síntomas restaurados');
+}
+function renderSymptoms() {
+  document.getElementById('symptom-list').innerHTML = appData.symptoms.map(s =>
+    `<span class="tag flex items-center gap-1">${s}<button onclick="removeSymptom('${esc(s)}')" style="color:var(--danger);margin-left:4px;font-size:11px;background:none;border:none;cursor:pointer">✕</button></span>`
+  ).join('');
+}
+
+// ════════════════════════════════════════════════════════════
+// PERSONS
+// ════════════════════════════════════════════════════════════
+function addPerson(name) {
+  const v = name || document.getElementById('new-person').value.trim();
+  if(!v) return;
+  if(appData.persons.includes(v)) { showToast('Ya existe'); return; }
+  appData.persons.push(v);
+  if(!appData.outcomes[v]) appData.outcomes[v] = {incubation:'',firstSymptom:'',duration:'',foods:[],symptoms:[],notes:''};
+  document.getElementById('new-person').value='';
+  renderPersons(); saveData();
+}
+function removePerson(p) {
+  appData.persons = appData.persons.filter(x=>x!==p);
+  delete appData.outcomes[p];
+  renderPersons(); saveData();
+}
+function renderPersons() {
+  document.getElementById('person-list').innerHTML = appData.persons.map(p =>
+    `<div class="flex items-center justify-between py-1.5 px-3 rounded" style="background:var(--surface2)">
+      <span class="text-sm" style="color:var(--text)">${p}</span>
+      <button class="btn-danger" onclick="removePerson('${esc(p)}')">✕</button>
+    </div>`).join('');
+  document.getElementById('person-count').textContent = appData.persons.length;
+}
+
+// ════════════════════════════════════════════════════════════
+// FOODS
+// ════════════════════════════════════════════════════════════
+function addFood(name) {
+  const v = name || document.getElementById('new-food').value.trim();
+  if(!v) return;
+  if(appData.foods.includes(v)) { showToast('Ya existe'); return; }
+  appData.foods.push(v);
+  document.getElementById('new-food').value='';
+  renderFoods(); saveData();
+}
+function removeFood(f) {
+  appData.foods = appData.foods.filter(x=>x!==f);
+  renderFoods(); saveData();
+}
+function renderFoods() {
+  document.getElementById('food-list').innerHTML = appData.foods.map(f =>
+    `<div class="flex items-center justify-between py-1.5 px-3 rounded" style="background:var(--surface2)">
+      <span class="text-sm" style="color:var(--text)">${f}</span>
+      <button class="btn-danger" onclick="removeFood('${esc(f)}')">✕</button>
+    </div>`).join('');
+  document.getElementById('food-count').textContent = appData.foods.length;
+}
+
+// ════════════════════════════════════════════════════════════
+// CSV IMPORT
+// ════════════════════════════════════════════════════════════
+function importCSV(target) { importTarget = target; document.getElementById('file-import').click(); }
+function handleFileImport(e) {
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const lines = ev.target.result.split(/[\n,;\t]+/).map(l=>l.trim()).filter(Boolean);
+    lines.forEach(l => {
+      if(importTarget==='person') addPerson(l);
+      else if(importTarget==='food') addFood(l);
+      else if(importTarget==='symptom') { if(!appData.symptoms.includes(l)) appData.symptoms.push(l); }
+    });
+    if(importTarget==='symptom') renderSymptoms();
+    saveData(); showToast(`${lines.length} elementos importados`);
+  };
+  reader.readAsText(file);
+  e.target.value='';
+}
+
+// ════════════════════════════════════════════════════════════
+// OUTCOMES TABLE
+// ════════════════════════════════════════════════════════════
+function renderOutcomesTable() {
+  const c = document.getElementById('outcomes-table-container');
+  if(!appData.persons.length) {
+    c.innerHTML='<div class="p-10 text-center" style="color:var(--muted)">Añade personas en la pestaña Configuración</div>'; return;
+  }
+  let html = `<table><thead><tr>
+    <th class="sticky left-0 z-10" style="background:var(--surface2);min-width:140px">Persona</th>
+    <th style="min-width:90px">Incub.(h)</th>
+    <th style="min-width:130px">1er Síntoma</th>
+    <th style="min-width:90px">Duración(h)</th>
+    ${appData.foods.map(f=>`<th class="text-center" style="min-width:80px;color:var(--accent2)">${f}</th>`).join('')}
+    ${appData.symptoms.map(s=>`<th class="text-center" style="min-width:80px;color:var(--warn)">${s}</th>`).join('')}
+    <th style="min-width:160px">Notas</th>
+  </tr></thead><tbody>`;
+
+  appData.persons.forEach(p => {
+    const o = appData.outcomes[p]||{};
+    const hasSym = (o.symptoms||[]).length > 0;
+    html += `<tr>
+      <td class="sticky left-0 z-10 font-600" style="background:var(--surface);color:var(--text)">${p}</td>
+      <td><input type="number" step="0.5" min="0" class="inp" style="width:80px" value="${o.incubation||''}" onchange="updateOutcome('${esc(p)}','incubation',this.value)"/></td>
+      <td><select class="inp" style="width:120px" onchange="updateOutcome('${esc(p)}','firstSymptom',this.value)">
+        <option value="">—</option>
+        ${appData.symptoms.map(s=>`<option ${o.firstSymptom===s?'selected':''}>${s}</option>`).join('')}
+      </select></td>
+      <td><input type="number" step="0.5" min="0" class="inp" style="width:80px" value="${o.duration||''}" onchange="updateOutcome('${esc(p)}','duration',this.value)"/></td>
+      ${appData.foods.map(f=>`<td class="text-center"><input type="checkbox" style="width:16px;height:16px;accent-color:var(--accent2)" ${(o.foods||[]).includes(f)?'checked':''} onchange="updateOutcomeCheck('${esc(p)}','foods','${esc(f)}',this.checked)"/></td>`).join('')}
+      ${appData.symptoms.map(s=>`<td class="text-center"><input type="checkbox" style="width:16px;height:16px;accent-color:var(--warn)" ${(o.symptoms||[]).includes(s)?'checked':''} onchange="updateOutcomeCheck('${esc(p)}','symptoms','${esc(s)}',this.checked)"/></td>`).join('')}
+      <td><input type="text" class="inp" style="width:150px;${hasSym?'':'opacity:.45;pointer-events:none'}" placeholder="${hasSym?'Notas...':'—'}" value="${o.notes||''}" onchange="updateOutcome('${esc(p)}','notes',this.value)"/></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  c.innerHTML = html;
+
+  const filled = appData.persons.filter(p=>{const o=appData.outcomes[p]||{};return o.incubation||(o.symptoms||[]).length;}).length;
+  document.getElementById('outcomes-filled').textContent = filled;
+  document.getElementById('outcomes-total').textContent = appData.persons.length;
+}
+
+function updateOutcome(p,f,v) {
+  if(!appData.outcomes[p]) appData.outcomes[p]={incubation:'',firstSymptom:'',duration:'',foods:[],symptoms:[],notes:''};
+  appData.outcomes[p][f]=v; saveData();
+}
+function updateOutcomeCheck(p,field,item,checked) {
+  if(!appData.outcomes[p]) appData.outcomes[p]={incubation:'',firstSymptom:'',duration:'',foods:[],symptoms:[],notes:''};
+  const arr = appData.outcomes[p][field]||[];
+  if(checked && !arr.includes(item)) arr.push(item);
+  else if(!checked) { const i=arr.indexOf(item); if(i>-1) arr.splice(i,1); }
+  appData.outcomes[p][field]=arr; saveData(); renderOutcomesTable();
+}
+
+// ════════════════════════════════════════════════════════════
+// BULK FILL
+// ════════════════════════════════════════════════════════════
+function openBulkFill() {
+  const m = document.getElementById('bulk-modal');
+  m.classList.remove('hidden'); m.classList.add('flex');
+  document.getElementById('bulk-person-checkboxes').innerHTML = appData.persons.map(p=>
+    `<label class="flex items-center gap-2 text-sm" style="color:var(--text)"><input type="checkbox" class="bulk-person-cb" value="${p}" checked style="accent-color:var(--accent)"/> ${p}</label>`).join('');
+  const sel = document.getElementById('bulk-first-symptom');
+  sel.innerHTML = `<option value="">—</option>` + appData.symptoms.map(s=>`<option>${s}</option>`).join('');
+  document.getElementById('bulk-food-checks').innerHTML = appData.foods.map(f=>
+    `<label class="flex items-center gap-1 text-xs" style="color:var(--text2)"><input type="checkbox" class="bulk-food-cb" value="${f}" style="accent-color:var(--accent2)"/> ${f}</label>`).join('');
+  document.getElementById('bulk-symptom-checks').innerHTML = appData.symptoms.map(s=>
+    `<label class="flex items-center gap-1 text-xs" style="color:var(--text2)"><input type="checkbox" class="bulk-sym-cb" value="${s}" style="accent-color:var(--warn)"/> ${s}</label>`).join('');
+}
+function closeBulk() {
+  const m=document.getElementById('bulk-modal');
+  m.classList.add('hidden'); m.classList.remove('flex');
+}
+function applyBulkFill() {
+  const persons=[...document.querySelectorAll('.bulk-person-cb:checked')].map(e=>e.value);
+  const incubation=document.getElementById('bulk-incubation').value;
+  const duration=document.getElementById('bulk-duration').value;
+  const firstSymptom=document.getElementById('bulk-first-symptom').value;
+  const foods=[...document.querySelectorAll('.bulk-food-cb:checked')].map(e=>e.value);
+  const symptoms=[...document.querySelectorAll('.bulk-sym-cb:checked')].map(e=>e.value);
+  persons.forEach(p=>{
+    if(!appData.outcomes[p]) appData.outcomes[p]={incubation:'',firstSymptom:'',duration:'',foods:[],symptoms:[],notes:''};
+    if(incubation) appData.outcomes[p].incubation=incubation;
+    if(duration) appData.outcomes[p].duration=duration;
+    if(firstSymptom) appData.outcomes[p].firstSymptom=firstSymptom;
+    if(foods.length) appData.outcomes[p].foods=[...new Set([...(appData.outcomes[p].foods||[]),...foods])];
+    if(symptoms.length) appData.outcomes[p].symptoms=[...new Set([...(appData.outcomes[p].symptoms||[]),...symptoms])];
+  });
+  saveData(); closeBulk(); renderOutcomesTable();
+  showToast(`Aplicado a ${persons.length} personas`);
+}
+
+// ════════════════════════════════════════════════════════════
+// STATISTICS
+// ════════════════════════════════════════════════════════════
+function calcOR_RR(a,b,c,d) {
+  const aa=a+0.5,bb=b+0.5,cc=c+0.5,dd=d+0.5;
+  const OR=(aa*dd)/(bb*cc);
+  const lnOR=Math.log(OR), seOR=Math.sqrt(1/aa+1/bb+1/cc+1/dd);
+  const orLow=Math.exp(lnOR-1.96*seOR), orHigh=Math.exp(lnOR+1.96*seOR);
+  const n1=a+b, n0=c+d;
+  const p1=n1>0?a/n1:0, p0=n0>0?c/n0:0;
+  const RR=p0>0?p1/p0:(p1>0?999:1);
+  const lnRR=(RR>0&&isFinite(RR))?Math.log(RR):0;
+  const seRR=(n1>0&&n0>0)?Math.sqrt((1-p1)/(a+0.5)+(1-p0)/(c+0.5)):0;
+  const rrLow=Math.exp(lnRR-1.96*seRR), rrHigh=Math.exp(lnRR+1.96*seRR);
+  const n=a+b+c+d;
+  const chi2=n>0?(n*Math.pow(Math.abs(a*d-b*c)-n/2,2))/((a+b)*(c+d)*(a+c)*(b+d)):0;
+  const pval=chi2>0?chiSqP(chi2,1):1;
+  return {OR,orLow,orHigh,RR,rrLow,rrHigh,chi2,pval,a,b,c,d};
+}
+function chiSqP(x,df){return 1-regGammaP(df/2,x/2);}
+function regGammaP(a,x){
+  if(x<0)return 0;if(x===0)return 0;
+  if(x>=a+1)return 1-regGammaQ(a,x);
+  let sum=1/a,term=1/a,n=1;
+  while(Math.abs(term)>1e-8&&n<200){term*=x/(a+n);sum+=term;n++;}
+  return sum*Math.exp(-x+a*Math.log(x)-logG(a));
+}
+function regGammaQ(a,x){
+  let b=x+1-a,c2=1/1e-30,d2=1/b,h=d2,i=1;
+  for(;i<=200;i++){const an=-i*(i-a);b+=2;d2=an*d2+b;if(Math.abs(d2)<1e-30)d2=1e-30;c2=b+an/c2;if(Math.abs(c2)<1e-30)c2=1e-30;d2=1/d2;const del=d2*c2;h*=del;if(Math.abs(del-1)<1e-8)break;}
+  return Math.exp(-x+a*Math.log(x)-logG(a))*h;
+}
+function logG(x){const c=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5];let y=x,tmp=x+5.5;tmp-=(x+0.5)*Math.log(tmp);let ser=1.000000000190015;for(let j=0;j<6;j++)ser+=c[j]/++y;return -tmp+Math.log(2.5066282746310005*ser/x);}
+function fmt(n,d=2){if(!isFinite(n)||n>999)return '>999';return parseFloat(n.toFixed(d));}
+function pFmt(p){if(p<0.001)return '<0.001 ***';if(p<0.01)return p.toFixed(3)+' **';if(p<0.05)return p.toFixed(3)+' *';return p.toFixed(3);}
+function esc(s){return (s||'').replace(/\\/g,'\\\\').replace(/'/g,'\\\'');}
+function median(arr){if(!arr.length)return null;const s=[...arr].sort((a,b)=>a-b);const m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2;}
+
+// ════════════════════════════════════════════════════════════
+// MOST IMPLICATED FOOD (corrected logic)
+// ════════════════════════════════════════════════════════════
+function getMostImplicatedFood(cases, nonCases) {
+  if(!appData.foods.length || !cases.length) return {food:'—', reason:'Sin datos'};
+
+  // Score cada alimento según OR para síntomas elementales (vómitos, diarrea, fiebre)
+  const scores = appData.foods.map(food => {
+    // OR global (todos los casos)
+    const aAll = cases.filter(p=>(appData.outcomes[p]?.foods||[]).includes(food)).length;
+    const bAll = nonCases.filter(p=>(appData.outcomes[p]?.foods||[]).includes(food)).length;
+    const cAll = cases.filter(p=>!(appData.outcomes[p]?.foods||[]).includes(food)).length;
+    const dAll = nonCases.filter(p=>!(appData.outcomes[p]?.foods||[]).includes(food)).length;
+    const globalStats = calcOR_RR(aAll,bAll,cAll,dAll);
+
+    // OR para cada síntoma elemental
+    let primaryScore = 0;
+    let primaryCombinedCount = 0;
+    PRIMARY_SYMPTOMS.forEach(sym => {
+      // Busca coincidencia parcial (insensible a mayúsculas)
+      const matchedSym = appData.symptoms.find(s => s.toLowerCase().includes(sym) || sym.includes(s.toLowerCase()));
+      if(!matchedSym) return;
+      const a = cases.filter(p=>(appData.outcomes[p]?.symptoms||[]).includes(matchedSym)&&(appData.outcomes[p]?.foods||[]).includes(food)).length;
+      const b = cases.filter(p=>(appData.outcomes[p]?.symptoms||[]).includes(matchedSym)&&!(appData.outcomes[p]?.foods||[]).includes(food)).length;
+      const c = cases.filter(p=>!(appData.outcomes[p]?.symptoms||[]).includes(matchedSym)&&(appData.outcomes[p]?.foods||[]).includes(food)).length;
+      const d = cases.filter(p=>!(appData.outcomes[p]?.symptoms||[]).includes(matchedSym)&&!(appData.outcomes[p]?.foods||[]).includes(food)).length;
+      const st = calcOR_RR(a,b,c,d);
+      primaryScore += Math.log(Math.max(st.OR,0.01)) * (st.pval<0.05?2:1);
+    });
+    // Bonus por combinación de síntomas elementales en el mismo caso
+    cases.forEach(p=>{
+      if(!(appData.outcomes[p]?.foods||[]).includes(food)) return;
+      const presentPrimary = PRIMARY_SYMPTOMS.filter(sym =>
+        appData.symptoms.find(s=>s.toLowerCase().includes(sym)||sym.includes(s.toLowerCase())) &&
+        (appData.outcomes[p]?.symptoms||[]).some(s=>s.toLowerCase().includes(sym)||sym.includes(s.toLowerCase()))
+      ).length;
+      if(presentPrimary>=2) primaryCombinedCount++;
+    });
+    const finalScore = primaryScore * 10 + primaryCombinedCount * 15 + Math.log(Math.max(globalStats.OR,0.01)) * 3;
+    return {food, score:finalScore, OR:globalStats.OR, pval:globalStats.pval, combined:primaryCombinedCount};
+  }).sort((a,b)=>b.score-a.score);
+
+  return scores[0];
+}
+
+// ════════════════════════════════════════════════════════════
+// PATHOGEN SCORING
+// ════════════════════════════════════════════════════════════
+function scorePathogens(meanInc,medInc,symptomStats,foodStats) {
+  const refInc = medInc||meanInc;
+  const topSymptoms = symptomStats.filter(s=>s.count>0).map(s=>s.sym.toLowerCase());
+  const topFoods = foodStats.filter(f=>f.OR>1).map(f=>f.food.toLowerCase());
+  return PATHOGENS.map(path=>{
+    let score=0;
+    if(refInc!==null){
+      if(refInc>=path.incMin&&refInc<=path.incMax) score+=40;
+      else { const dist=Math.min(Math.abs(refInc-path.incMin),Math.abs(refInc-path.incMax)); score+=Math.max(0,30-dist*2); }
+    }
+    topSymptoms.forEach(sym=>{ if(path.symptoms.some(ps=>ps.toLowerCase().includes(sym)||sym.includes(ps.toLowerCase()))) score+=10; });
+    score=Math.min(score,80);
+    topFoods.forEach(food=>{ if(path.vehicles.some(v=>v.toLowerCase().includes(food)||food.includes(v.toLowerCase()))) score+=10; });
+    return {...path, score:Math.min(score,100)};
+  }).sort((a,b)=>b.score-a.score);
+}
+
+// ════════════════════════════════════════════════════════════
+// EPIDEMIC CURVE DATA
+// ════════════════════════════════════════════════════════════
+function buildEpiCurveData(cases) {
+  const incubations = cases.map(p=>parseFloat(appData.outcomes[p]?.incubation)).filter(x=>!isNaN(x)&&x>0);
+  if(!incubations.length) return null;
+  const min=Math.floor(Math.min(...incubations)), max=Math.ceil(Math.max(...incubations));
+  // Bins de 1 hora (o más si rango amplio)
+  const range=max-min;
+  const binSize = range<=12?1:range<=48?2:range<=96?4:range<=240?6:12;
+  const bins={};
+  for(let b=min;b<=max;b+=binSize) bins[b]=0;
+  incubations.forEach(v=>{ const k=Math.floor((v-min)/binSize)*binSize+min; bins[k]=(bins[k]||0)+1; });
+  const labels=Object.keys(bins).map(k=>`${k}h`);
+  const data=Object.values(bins);
+  return {labels,data,binSize,min,max,mediana:median(incubations)};
+}
+
+function classifyEpiCurve(incubations,medInc) {
+  if(!incubations.length) return null;
+  const max=Math.max(...incubations), min=Math.min(...incubations);
+  const range=max-min;
+  const sorted=[...incubations].sort((a,b)=>a-b);
+  const p90=sorted[Math.floor(sorted.length*0.9)];
+  const p10=sorted[Math.floor(sorted.length*0.1)];
+  const compressed = (p90-p10) < (medInc||1)*2;
+  if(compressed) return {type:'Fuente común puntual',desc:'Todos los afectados se expusieron en el mismo momento (típico de banquetes y eventos únicos). El pico es agudo y el descenso más lento.',color:'#60a5fa'};
+  if(range > (medInc||1)*4) return {type:'Fuente común continua o propagada',desc:'La curva se extiende durante un largo período, lo que puede indicar exposición continua o transmisión secundaria persona-persona.',color:'#fbbf24'};
+  return {type:'Patrón mixto',desc:'La distribución temporal sugiere posible fuente común con propagación secundaria.',color:'#a78bfa'};
+}
+
+// ════════════════════════════════════════════════════════════
+// MAIN ANALYSIS
+// ════════════════════════════════════════════════════════════
+function runAnalysis() {
+  const cases = appData.persons.filter(p=>(appData.outcomes[p]?.symptoms||[]).length>0);
+  const nonCases = appData.persons.filter(p=>!(appData.outcomes[p]?.symptoms||[]).length);
+  const totalN = appData.persons.length;
+  const attackRate = totalN>0?(cases.length/totalN*100):0;
+  const incubations = cases.map(p=>parseFloat(appData.outcomes[p]?.incubation)).filter(x=>!isNaN(x)&&x>0).sort((a,b)=>a-b);
+  const medInc = median(incubations);
+  const meanInc = incubations.length?incubations.reduce((a,b)=>a+b,0)/incubations.length:null;
+
+  const foodStats = appData.foods.map(food=>{
+    const a=cases.filter(p=>(appData.outcomes[p]?.foods||[]).includes(food)).length;
+    const b=nonCases.filter(p=>(appData.outcomes[p]?.foods||[]).includes(food)).length;
+    const c=cases.filter(p=>!(appData.outcomes[p]?.foods||[]).includes(food)).length;
+    const d=nonCases.filter(p=>!(appData.outcomes[p]?.foods||[]).includes(food)).length;
+    const exposed=a+b;
+    const attackAmongExposed=exposed>0?a/exposed*100:0;
+    const stats=calcOR_RR(a,b,c,d);
+    return {food,...stats,exposed,attackAmongExposed};
+  }).sort((a,b)=>b.OR-a.OR);
+
+  const symptomStats = appData.symptoms.map(sym=>{
+    const count=cases.filter(p=>(appData.outcomes[p]?.symptoms||[]).includes(sym)).length;
+    const pct=cases.length>0?count/cases.length*100:0;
+    return {sym,count,pct};
+  }).sort((a,b)=>b.count-a.count);
+
+  const mostImplicatedObj = getMostImplicatedFood(cases, nonCases);
+  const pathogenScores = scorePathogens(meanInc,medInc,symptomStats,foodStats);
+  const epiCurveData = buildEpiCurveData(cases);
+  const epiClassification = epiCurveData ? classifyEpiCurve(incubations, medInc) : null;
+
+  const symFoodMatrix = appData.symptoms.map(sym=>{
+    const best=appData.foods.map(food=>{
+      const a=cases.filter(p=>(appData.outcomes[p]?.symptoms||[]).includes(sym)&&(appData.outcomes[p]?.foods||[]).includes(food)).length;
+      const b=cases.filter(p=>(appData.outcomes[p]?.symptoms||[]).includes(sym)&&!(appData.outcomes[p]?.foods||[]).includes(food)).length;
+      const c=cases.filter(p=>!(appData.outcomes[p]?.symptoms||[]).includes(sym)&&(appData.outcomes[p]?.foods||[]).includes(food)).length;
+      const d=cases.filter(p=>!(appData.outcomes[p]?.symptoms||[]).includes(sym)&&!(appData.outcomes[p]?.foods||[]).includes(food)).length;
+      return {food,...calcOR_RR(a,b,c,d)};
+    }).sort((a,b)=>b.OR-a.OR)[0];
+    return {sym,bestFood:best};
+  });
+
+  renderAnalysis({totalN,cases,nonCases,attackRate,incubations,medInc,meanInc,foodStats,symptomStats,mostImplicatedObj,symFoodMatrix,pathogenScores,epiCurveData,epiClassification});
+}
+
+// ════════════════════════════════════════════════════════════
+// RENDER ANALYSIS
+// ════════════════════════════════════════════════════════════
+function renderAnalysis(d) {
+  const {totalN,cases,nonCases,attackRate,incubations,medInc,meanInc,foodStats,symptomStats,mostImplicatedObj,symFoodMatrix,pathogenScores,epiCurveData,epiClassification} = d;
+
+  Object.values(chartInstances).forEach(c=>{try{c.destroy();}catch(e){}});
+  chartInstances={};
+
+  document.getElementById('analysis-output').innerHTML = `
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4" id="metrics-grid"></div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="card p-4" id="epi-curve-card">
+        <div class="section-header">Curva Epidémica — Distribución Temporal de Casos</div>
+        <div id="epi-type-badge" class="mb-3"></div>
+        <canvas id="chart-epi" style="max-height:220px"></canvas>
+        <div id="epi-interp" class="mt-3 text-xs" style="color:var(--text2)"></div>
+      </div>
+      <div class="card p-4">
+        <div class="section-header">Distribución de Síntomas en Casos</div>
+        <canvas id="chart-donut" style="max-height:220px"></canvas>
+      </div>
+    </div>
+    <div class="card p-4" id="forest-container">
+      <div class="section-header">Forest Plot — Odds Ratio por Alimento (IC 95%, escala log)</div>
+      <div id="forest-plot" class="overflow-x-auto"></div>
+    </div>
+    <div class="card p-4 overflow-x-auto scrollbar-thin">
+      <div class="section-header">Tabla Resumen de Tasas de Ataque por Alimento</div>
+      <div id="attack-rate-table"></div>
+    </div>
+    <div class="card p-4 overflow-x-auto scrollbar-thin">
+      <div class="section-header">Estadística de Asociación Alimento–Caso (OR, RR, χ², p-valor)</div>
+      <div id="food-table"></div>
+    </div>
+    <div class="card p-4 overflow-x-auto scrollbar-thin">
+      <div class="section-header">Alimento más probable por síntoma</div>
+      <div id="sym-food-table"></div>
+    </div>
+    <div class="card p-4">
+      <div class="section-header">Agente Causal más Probable</div>
+      <div id="pathogen-results"></div>
+    </div>
+  `;
+
+  // ── Métricas ──
+  const mg = document.getElementById('metrics-grid');
+  mg.innerHTML = [
+    {icon:'👥', val:totalN, label:'Total personas', sub:'expuestas'},
+    {icon:'⚠️', val:cases.length, label:'Casos confirmados', sub:`Tasa de ataque: ${attackRate.toFixed(1)}%`},
+    {icon:'⏱', val:medInc!==null?`${medInc}h`:'—', label:'Mediana incubación', sub:meanInc?`Media: ${meanInc.toFixed(1)}h`:''},
+    {icon:'🍽', val:mostImplicatedObj.food, label:'Alimento más implicado', sub:mostImplicatedObj.food!=='—'?`OR global: ${fmt(mostImplicatedObj.OR)}${mostImplicatedObj.combined?` · ${mostImplicatedObj.combined} casos múlt.`:''}`:'-'},
+  ].map(m=>`<div class="metric-card">
+    <div class="text-2xl mb-1">${m.icon}</div>
+    <div class="font-display font-700" style="font-size:22px;color:var(--accent)">${m.val}</div>
+    <div class="text-xs font-600 mt-1" style="color:var(--text)">${m.label}</div>
+    ${m.sub?`<div class="text-xs mono mt-0.5" style="color:var(--muted)">${m.sub}</div>`:''}
+  </div>`).join('');
+
+  // ── Curva epidémica ──
+  const epiCard = document.getElementById('epi-type-badge');
+  if(epiCurveData && epiClassification) {
+    epiCard.innerHTML = `<span class="badge" style="background:${epiClassification.color}22;color:${epiClassification.color};font-size:12px">${epiClassification.type}</span>`;
+    document.getElementById('epi-interp').innerHTML = `<strong>Interpretación:</strong> ${epiClassification.desc}
+      ${medInc?`<br><span class="mono">Mediana incubación: ${medInc}h · Rango: ${Math.min(...incubations).toFixed(1)}–${Math.max(...incubations).toFixed(1)}h</span>`:''}`;
+    const ctx = document.getElementById('chart-epi').getContext('2d');
+    chartInstances.epi = new Chart(ctx, {
+      type:'bar',
+      data:{
+        labels:epiCurveData.labels,
+        datasets:[{
+          label:'Nº casos',
+          data:epiCurveData.data,
+          backgroundColor:'rgba(96,165,250,0.65)',
+          borderColor:'#60a5fa',
+          borderWidth:1,
+          borderRadius:3
+        }]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{
+          legend:{display:false},
+          tooltip:{callbacks:{title:ctx=>`Inicio: ${ctx[0].label}`,label:ctx=>`${ctx.raw} caso${ctx.raw!==1?'s':''}`}},
+          annotation:{annotations:{
+            medLine:{type:'line',xMin:epiCurveData.labels.findIndex(l=>parseFloat(l)>=epiCurveData.mediana)-0.5,xMax:epiCurveData.labels.findIndex(l=>parseFloat(l)>=epiCurveData.mediana)-0.5,borderColor:'#fbbf24',borderWidth:2,label:{content:'Mediana',enabled:true}}
+          }}
+        },
+        scales:{
+          x:{ticks:{color:'var(--text)',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'},title:{display:true,text:'Tiempo de inicio de síntomas (h)',color:'var(--muted)',font:{size:11}}},
+          y:{ticks:{color:'var(--muted)',font:{size:10},stepSize:1},grid:{color:'rgba(255,255,255,.05)'},title:{display:true,text:'Nº casos',color:'var(--muted)',font:{size:11}}}
+        }
+      }
+    });
+  } else {
+    document.getElementById('chart-epi').parentElement.innerHTML += '<div class="text-center py-6 text-sm" style="color:var(--muted)">Sin datos de incubación para trazar la curva epidémica.<br>Registra los periodos de incubación en la pestaña Outcomes.</div>';
+    document.getElementById('epi-type-badge').innerHTML='';
+  }
+
+  // ── Donut síntomas ──
+  const active = symptomStats.filter(s=>s.count>0);
+  if(active.length) {
+    const palette=['#60a5fa','#38bdf8','#34d399','#fbbf24','#f87171','#a78bfa','#fb923c','#4ade80'];
+    chartInstances.donut = new Chart(document.getElementById('chart-donut').getContext('2d'),{
+      type:'doughnut',
+      data:{labels:active.map(s=>s.sym),datasets:[{data:active.map(s=>s.count),backgroundColor:active.map((_,i)=>palette[i%palette.length]),borderWidth:2,borderColor:'var(--surface)'}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'var(--text)',font:{size:11},padding:8}}}}
+    });
+  }
+
+  // ── Forest plot ──
+  const fp = document.getElementById('forest-plot');
+  if(foodStats.length) {
+    const validOR = foodStats.filter(f=>f.OR>0&&isFinite(f.OR));
+    if(validOR.length) {
+      const allVals=[...validOR.map(f=>f.orLow),...validOR.map(f=>f.orHigh),1].filter(v=>v>0&&isFinite(v));
+      const logMin=Math.log2(Math.min(...allVals))-0.5;
+      const logMax=Math.log2(Math.max(...allVals))+0.5;
+      const range=logMax-logMin;
+      const pct=v=>{ const lv=Math.log2(Math.max(v,0.001)); return Math.max(1,Math.min(99,(lv-logMin)/range*100)); };
+      const neutralPct=pct(1);
+      fp.innerHTML=`<div style="position:relative;padding-left:130px;padding-right:20px;min-width:400px">
+        <div style="position:absolute;left:calc(130px + ${neutralPct}%);top:0;bottom:0;width:1px;background:var(--muted);opacity:.5"></div>
+        <div class="text-xs mono text-center mb-2" style="color:var(--muted);margin-left:${neutralPct - 5}%">OR=1</div>
+        ${validOR.map(f=>{
+          const sig=f.pval<0.05;
+          const col=sig?'#60a5fa':'var(--muted)';
+          const cP=pct(f.OR),lP=pct(f.orLow),hP=pct(f.orHigh);
+          return `<div style="position:relative;height:26px;display:flex;align-items:center;margin-bottom:4px">
+            <div style="position:absolute;right:calc(100% - 126px);white-space:nowrap;font-size:12px;color:${col};font-weight:${sig?700:400};text-align:right;font-family:'DM Mono',monospace">${f.food}</div>
+            <div style="position:absolute;left:${Math.min(lP,hP)}%;right:${100-Math.max(lP,hP)}%;height:2px;background:${col};opacity:.8;top:50%;transform:translateY(-50%)"></div>
+            <div style="position:absolute;left:calc(${cP}% - 6px);top:50%;transform:translateY(-50%);width:12px;height:12px;background:${col};border-radius:2px"></div>
+            <div style="position:absolute;left:calc(${Math.max(lP,hP)}% + 6px);font-size:10px;font-family:'DM Mono',monospace;color:var(--muted);white-space:nowrap">
+              ${fmt(f.OR)} [${fmt(f.orLow)}–${fmt(f.orHigh)}]${sig?' *':''}
+            </div>
+          </div>`;
+        }).join('')}
+        <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;font-family:'DM Mono',monospace;color:var(--muted)"><span>← Protector</span><span>Riesgo →</span></div>
+      </div>`;
+    }
+  }
+
+  // ── Tabla tasas de ataque (sin gráfico) ──
+  const art = document.getElementById('attack-rate-table');
+  if(foodStats.length) {
+    art.innerHTML = `<table><thead><tr>
+      <th>Alimento</th><th>Expuestos (total)</th><th>Casos expuestos</th><th>No casos expuestos</th>
+      <th>Tasa ataque expuestos (%)</th><th>Casos no expuestos</th><th>Tasa ataque no expuestos (%)</th>
+    </tr></thead><tbody>
+    ${foodStats.map(f=>{
+      const tacNE=f.c+f.d>0?f.c/(f.c+f.d)*100:0;
+      const sig=f.pval<0.05;
+      return `<tr>
+        <td class="font-600" style="color:${sig?'var(--accent)':'var(--text)'}">${f.food}${sig?` <span class="badge badge-blue">sig.</span>`:''}</td>
+        <td class="mono">${f.exposed}</td>
+        <td class="mono">${f.a}</td>
+        <td class="mono">${f.b}</td>
+        <td class="mono font-600" style="color:${sig?'var(--accent)':'var(--text)'}">${fmt(f.attackAmongExposed,1)}%</td>
+        <td class="mono">${f.c}</td>
+        <td class="mono">${fmt(tacNE,1)}%</td>
+      </tr>`;
+    }).join('')}
+    </tbody></table>`;
+  } else art.innerHTML='<p class="py-4 text-center" style="color:var(--muted)">Sin datos de alimentos</p>';
+
+  // ── Tabla estadísticas OR/RR ──
+  const ft = document.getElementById('food-table');
+  ft.innerHTML = `<table><thead><tr>
+    <th>Alimento</th><th>a</th><th>b</th><th>c</th><th>d</th>
+    <th>OR (IC 95%)</th><th>RR (IC 95%)</th><th>χ²</th><th>p-valor</th>
+  </tr></thead><tbody>
+  ${foodStats.map(f=>{
+    const sig=f.pval<0.05;
+    return `<tr>
+      <td class="font-600" style="color:${sig?'var(--accent)':'var(--text)'}">${f.food}</td>
+      <td class="mono">${f.a}</td><td class="mono">${f.b}</td><td class="mono">${f.c}</td><td class="mono">${f.d}</td>
+      <td class="mono ${sig?'sig':''}">${fmt(f.OR)} [${fmt(f.orLow)}–${fmt(f.orHigh)}]</td>
+      <td class="mono">${fmt(f.RR)} [${fmt(f.rrLow)}–${fmt(f.rrHigh)}]</td>
+      <td class="mono">${fmt(f.chi2)}</td>
+      <td class="mono ${sig?'sig':''}">${pFmt(f.pval)}</td>
+    </tr>`;
+  }).join('')}
+  </tbody></table>`;
+
+  // ── Tabla síntoma × alimento ──
+  document.getElementById('sym-food-table').innerHTML = `<table><thead><tr>
+    <th>Síntoma</th><th>Alimento más probable</th><th>OR</th><th>IC 95%</th><th>p-valor</th>
+  </tr></thead><tbody>
+  ${symFoodMatrix.map(s=>{
+    const b=s.bestFood; if(!b) return `<tr><td>${s.sym}</td><td colspan="4" style="color:var(--muted)">Sin datos</td></tr>`;
+    const sig=b.pval<0.05;
+    return `<tr>
+      <td class="font-600">${s.sym}</td>
+      <td style="color:${sig?'var(--accent2)':'var(--text)'}">${b.food}</td>
+      <td class="mono ${sig?'sig':''}">${fmt(b.OR)}</td>
+      <td class="mono">[${fmt(b.orLow)}–${fmt(b.orHigh)}]</td>
+      <td class="mono ${sig?'sig':''}">${pFmt(b.pval)}</td>
+    </tr>`;
+  }).join('')}
+  </tbody></table>`;
+
+  // ── Agentes causales ──
+  const top3=pathogenScores.slice(0,3);
+  const pr=document.getElementById('pathogen-results');
+  pr.innerHTML=`
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+      ${top3.map((p,i)=>`<div class="card2 p-4" style="${i===0?'border-color:var(--accent)':''}">
+        <div class="badge ${i===0?'badge-blue':'badge-yellow'} mb-2">${i===0?'★ Más probable':'#'+(i+1)}</div>
+        <div class="font-display font-700 text-sm mb-1" style="color:var(--text)">${p.short}</div>
+        <div class="text-xs mono mb-2" style="color:var(--muted)">Score: ${p.score}/100</div>
+        <div class="rounded-full h-1.5 mb-3" style="background:var(--border)">
+          <div class="h-1.5 rounded-full" style="width:${p.score}%;background:${i===0?'var(--accent)':'var(--accent2)'}"></div>
+        </div>
+        <div class="text-xs mb-1" style="color:var(--text2)"><span style="color:var(--muted)">Incub.: </span>${p.incMin}–${p.incMax}h</div>
+        <div class="text-xs mb-1" style="color:var(--text2)"><span style="color:var(--muted)">Duración: </span>${p.duration}</div>
+        <div class="text-xs mb-2" style="color:var(--text2)"><span style="color:var(--muted)">Vehículos: </span>${p.vehicles.slice(0,3).join(', ')}</div>
+        <div class="text-xs italic" style="color:var(--muted)">${p.keyFeatures}</div>
+      </div>`).join('')}
+    </div>
+    <div class="card2 p-3 overflow-x-auto scrollbar-thin">
+      <table><thead><tr><th>Agente</th><th>Score</th><th>Incub. típica</th><th>Duración</th><th>Rasgos clave</th><th>Vehículos</th></tr></thead>
+      <tbody>${pathogenScores.slice(0,10).map((p,i)=>`<tr>
+        <td class="font-600 text-xs" style="color:${i<3?'var(--accent)':'var(--text)'}">${p.short}</td>
+        <td><div style="display:flex;align-items:center;gap:6px"><div style="width:60px;height:5px;border-radius:3px;background:var(--border)"><div style="width:${p.score}%;height:100%;border-radius:3px;background:${i===0?'var(--accent)':'var(--accent2)'}"></div></div><span class="mono" style="font-size:11px">${p.score}</span></div></td>
+        <td class="mono text-xs">${p.incMin}–${p.incMax}h</td>
+        <td class="text-xs">${p.duration}</td>
+        <td class="text-xs" style="max-width:180px">${p.keyFeatures}</td>
+        <td class="text-xs">${p.vehicles.slice(0,2).join(', ')}</td>
+      </tr>`).join('')}
+      </tbody></table>
+    </div>`;
+
+  showToast('Análisis completado ✓');
+}
+
+// ════════════════════════════════════════════════════════════
+// EXPORT EXCEL
+// ════════════════════════════════════════════════════════════
+function exportExcel() {
+  const wb = XLSX.utils.book_new();
+  // Evento
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ['Campo','Valor'],['Evento',appData.event.name],['Fecha',appData.event.date],['Código',appData.event.code],
+    ['Total personas',appData.persons.length],['Total alimentos',appData.foods.length],['Total síntomas',appData.symptoms.length]
+  ]), 'Evento');
+  // Outcomes
+  if(appData.persons.length) {
+    const hdr=['Persona','Incubación(h)','1er Síntoma','Duración(h)',...appData.foods.map(f=>'[A]'+f),...appData.symptoms.map(s=>'[S]'+s),'Notas'];
+    const rows=appData.persons.map(p=>{const o=appData.outcomes[p]||{};return [p,o.incubation||'',o.firstSymptom||'',o.duration||'',...appData.foods.map(f=>(o.foods||[]).includes(f)?1:0),...appData.symptoms.map(s=>(o.symptoms||[]).includes(s)?1:0),o.notes||''];});
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([hdr,...rows]), 'Outcomes');
+  }
+  // Estadísticas alimentos
+  const cases=appData.persons.filter(p=>(appData.outcomes[p]?.symptoms||[]).length>0);
+  const nonCases=appData.persons.filter(p=>!(appData.outcomes[p]?.symptoms||[]).length);
+  if(appData.foods.length) {
+    const fh=['Alimento','a(E+C)','b(E+NC)','c(NE+C)','d(NE+NC)','OR','OR_CI_low','OR_CI_high','RR','RR_CI_low','RR_CI_high','Chi2','p-valor','T.Ataque.Exp(%)'];
+    const fr=appData.foods.map(food=>{
+      const a=cases.filter(p=>(appData.outcomes[p]?.foods||[]).includes(food)).length;
+      const b=nonCases.filter(p=>(appData.outcomes[p]?.foods||[]).includes(food)).length;
+      const c2=cases.filter(p=>!(appData.outcomes[p]?.foods||[]).includes(food)).length;
+      const d=nonCases.filter(p=>!(appData.outcomes[p]?.foods||[]).includes(food)).length;
+      const s=calcOR_RR(a,b,c2,d);const ta=(a+b)>0?a/(a+b)*100:0;
+      return [food,a,b,c2,d,fmt(s.OR),fmt(s.orLow),fmt(s.orHigh),fmt(s.RR),fmt(s.rrLow),fmt(s.rrHigh),fmt(s.chi2),parseFloat(s.pval.toFixed(4)),fmt(ta,1)];
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([fh,...fr]), 'Estadísticas Alimentos');
+  }
+  XLSX.writeFile(wb,`ToxiEvent_${appData.event.code||'brote'}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('Excel exportado ✓');
+}
+
+// ════════════════════════════════════════════════════════════
+// EXPORT PDF — siempre modo claro, COMPLETO
+// ════════════════════════════════════════════════════════════
+async function exportPDF() {
+  showToast('Generando PDF completo…', 8000);
+
+  // Forzar modo claro temporalmente para captura
+  const wasDark = document.documentElement.classList.contains('dark');
+  document.documentElement.classList.remove('dark');
+  await sleep(400);
+
+  const {jsPDF} = window.jspdf;
+  const doc = new jsPDF({orientation:'p', unit:'mm', format:'a4'});
+  const pw = doc.internal.pageSize.getWidth(); // 210mm
+  const ph = doc.internal.pageSize.getHeight(); // 297mm
+  const ml=15, mr=15, mTop=15;
+  let y = mTop;
+
+  // ── Cabecera ──
+  doc.setFillColor(30,47,82); doc.rect(0,0,pw,28,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.setTextColor(96,165,250);
+  doc.text('ToxiEvent',ml,12);
+  doc.setFontSize(9); doc.setTextColor(168,187,240);
+  doc.text('Informe de Análisis de Brote de Toxinfección Alimentaria · v1.1',ml,18);
+  doc.setFontSize(8); doc.setTextColor(122,144,192);
+  doc.text(`Evento: ${appData.event.name||'—'} | Código: ${appData.event.code||'—'} | Fecha: ${appData.event.date||'—'}`,ml,24);
+  y=36;
+
+  const addSectionHeader=(title)=>{
+    if(y>270){doc.addPage();y=mTop;}
+    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(96,165,250);
+    doc.text(title,ml,y);
+    doc.setDrawColor(96,165,250); doc.setLineWidth(0.5); doc.line(ml,y+1,pw-mr,y+1);
+    y+=7;
+  };
+  const addText=(text,size=9,color=[180,200,220])=>{
+    doc.setFont('helvetica','normal'); doc.setFontSize(size); doc.setTextColor(...color);
+    const lines=doc.splitTextToSize(text,pw-ml-mr);
+    if(y+lines.length*4.5>285){doc.addPage();y=mTop;}
+    doc.text(lines,ml,y); y+=lines.length*4.5+1;
+  };
+
+  // ── Resumen ejecutivo ──
+  addSectionHeader('RESUMEN EJECUTIVO');
+  const cases=appData.persons.filter(p=>(appData.outcomes[p]?.symptoms||[]).length>0);
+  const nonCases=appData.persons.filter(p=>!(appData.outcomes[p]?.symptoms||[]).length);
+  const attackRate=appData.persons.length>0?(cases.length/appData.persons.length*100):0;
+  const incubations=cases.map(p=>parseFloat(appData.outcomes[p]?.incubation)).filter(x=>!isNaN(x)&&x>0).sort((a,b)=>a-b);
+  const medInc=median(incubations);
+  const mostImplicatedObj=getMostImplicatedFood(cases,nonCases);
+  const foodStats=appData.foods.map(food=>{
+    const a=cases.filter(p=>(appData.outcomes[p]?.foods||[]).includes(food)).length;
+    const b=nonCases.filter(p=>(appData.outcomes[p]?.foods||[]).includes(food)).length;
+    const c2=cases.filter(p=>!(appData.outcomes[p]?.foods||[]).includes(food)).length;
+    const d=nonCases.filter(p=>!(appData.outcomes[p]?.foods||[]).includes(food)).length;
+    const exposed=a+b; const ta=exposed>0?a/exposed*100:0;
+    return {food,...calcOR_RR(a,b,c2,d),exposed,attackAmongExposed:ta};
+  }).sort((a,b)=>b.OR-a.OR);
+  const symptomStats=appData.symptoms.map(sym=>{const count=cases.filter(p=>(appData.outcomes[p]?.symptoms||[]).includes(sym)).length;return{sym,count,pct:cases.length>0?count/cases.length*100:0};}).sort((a,b)=>b.count-a.count);
+  const symFoodMatrix=appData.symptoms.map(sym=>{const best=appData.foods.map(food=>{const a=cases.filter(p=>(appData.outcomes[p]?.symptoms||[]).includes(sym)&&(appData.outcomes[p]?.foods||[]).includes(food)).length;const b=cases.filter(p=>(appData.outcomes[p]?.symptoms||[]).includes(sym)&&!(appData.outcomes[p]?.foods||[]).includes(food)).length;const c=cases.filter(p=>!(appData.outcomes[p]?.symptoms||[]).includes(sym)&&(appData.outcomes[p]?.foods||[]).includes(food)).length;const d=cases.filter(p=>!(appData.outcomes[p]?.symptoms||[]).includes(sym)&&!(appData.outcomes[p]?.foods||[]).includes(food)).length;return{food,...calcOR_RR(a,b,c,d)};}).sort((a,b)=>b.OR-a.OR)[0];return{sym,bestFood:best};});
+  const pathogenScores=scorePathogens(incubations.length?incubations.reduce((a,b2)=>a+b2,0)/incubations.length:null,medInc,symptomStats,foodStats);
+
+  const summaryLines=[
+    `• Total personas expuestas: ${appData.persons.length}    Casos confirmados: ${cases.length}    No casos: ${nonCases.length}`,
+    `• Tasa de ataque global: ${attackRate.toFixed(1)}%`,
+    `• Mediana de incubación: ${medInc!==null?medInc+'h':'—'}    Rango: ${incubations.length?Math.min(...incubations).toFixed(1)+'–'+Math.max(...incubations).toFixed(1)+'h':'—'}`,
+    `• Alimento más implicado: ${mostImplicatedObj.food}${mostImplicatedObj.food!=='—'?` (OR=${fmt(mostImplicatedObj.OR)})`:''} `,
+    `• Agente más probable: ${pathogenScores[0]?.short||'—'} (score: ${pathogenScores[0]?.score||0}/100)`,
+    `• Síntoma más frecuente: ${symptomStats[0]?.sym||'—'} (${symptomStats[0]?.count||0} casos, ${(symptomStats[0]?.pct||0).toFixed(1)}%)`,
+    `• Fecha generación: ${new Date().toLocaleString('es-ES')}`,
+  ];
+  summaryLines.forEach(l=>addText(l,9));
+  y+=3;
+
+  // ── Captura gráficos ──
+  addSectionHeader('CURVA EPIDÉMICA');
+  const epiCanvas = document.getElementById('chart-epi');
+  if(epiCanvas) {
+    try {
+      const img = epiCanvas.toDataURL('image/png');
+      if(y+75>285){doc.addPage();y=mTop;}
+      doc.addImage(img,'PNG',ml,y,pw-ml-mr,65); y+=70;
+      const epiCurveData=buildEpiCurveData(cases);
+      const epiClass=epiCurveData?classifyEpiCurve(incubations,medInc):null;
+      if(epiClass) addText(`Tipo de curva: ${epiClass.type}. ${epiClass.desc}`,8,[100,120,160]);
+    } catch(e) { addText('[Gráfico no disponible]',8,[180,60,60]); }
+  } else addText('Registra períodos de incubación en Outcomes para visualizar la curva epidémica.',8,[120,140,180]);
+  y+=3;
+
+  addSectionHeader('DISTRIBUCIÓN DE SÍNTOMAS EN CASOS');
+  const donutCanvas = document.getElementById('chart-donut');
+  if(donutCanvas) {
+    try {
+      const img=donutCanvas.toDataURL('image/png');
+      if(y+65>285){doc.addPage();y=mTop;}
+      doc.addImage(img,'PNG',ml+(pw-ml-mr)/2-30,y,60,60); y+=65;
+    } catch(e) { addText('[Gráfico no disponible]',8,[180,60,60]); }
+  }
+  y+=3;
+
+  // ── Tabla Outcomes completa ──
+  addSectionHeader('TABLA DE OUTCOMES INDIVIDUALES');
+  if(appData.persons.length) {
+    // Cabecera tabla
+    const tCols = ['Persona','Inc.h','1er Sint.','Dur.h','Alimentos (consumidos)','Síntomas (presentados)','Notas'];
+    const tWidths = [30,12,22,12,42,42,32];
+    const drawTableHeader=()=>{
+      if(y+8>285){doc.addPage();y=mTop;}
+      doc.setFillColor(30,47,82);
+      let tx=ml;
+      doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(150,175,220);
+      tCols.forEach((c,i)=>{ doc.rect(tx,y-4,tWidths[i],6,'F'); doc.text(c,tx+1,y); tx+=tWidths[i]; });
+      y+=3;
+    };
+    drawTableHeader();
+    appData.persons.forEach((p,ri)=>{
+      const o=appData.outcomes[p]||{};
+      const hasSym=(o.symptoms||[]).length>0;
+      if(y+7>285){doc.addPage();y=mTop;drawTableHeader();}
+      doc.setFont('helvetica','normal'); doc.setFontSize(7);
+      const isCase=hasSym;
+      if(ri%2===0) { doc.setFillColor(22,38,68); doc.rect(ml,y-3,pw-ml-mr,6,'F'); }
+      if(isCase) doc.setTextColor(150,200,255); else doc.setTextColor(160,175,200);
+      const row=[p,o.incubation||'',o.firstSymptom||'',o.duration||'',(o.foods||[]).join(', ')||'—',(o.symptoms||[]).join(', ')||'—',o.notes||''];
+      let tx=ml;
+      row.forEach((v,i)=>{
+        const maxW=tWidths[i]-2;
+        const lines=doc.splitTextToSize(String(v),maxW);
+        doc.text(lines[0],tx+1,y);
+        tx+=tWidths[i];
+      });
+      y+=5;
+    });
+    y+=4;
+  }
+
+  // ── Tabla tasas de ataque ──
+  if(foodStats.length) {
+    addSectionHeader('TASAS DE ATAQUE POR ALIMENTO');
+    if(y+8>285){doc.addPage();y=mTop;}
+    const cols2=['Alimento','N expuestos','Casos exp.','TA exp.(%)','Casos no exp.','TA no exp.(%)'];
+    const widths2=[45,22,22,22,22,22];
+    doc.setFillColor(30,47,82); let tx=ml;
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(150,175,220);
+    cols2.forEach((c,i)=>{doc.rect(tx,y-4,widths2[i],6,'F');doc.text(c,tx+1,y);tx+=widths2[i];});
+    y+=3;
+    foodStats.forEach((f,ri)=>{
+      if(y+6>285){doc.addPage();y=mTop;}
+      if(ri%2===0){doc.setFillColor(22,38,68);doc.rect(ml,y-3,pw-ml-mr,6,'F');}
+      doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+      if(f.pval<0.05) doc.setTextColor(96,165,250); else doc.setTextColor(160,180,210);
+      const tacNE=f.c+f.d>0?f.c/(f.c+f.d)*100:0;
+      const row=[f.food,f.exposed,f.a,fmt(f.attackAmongExposed,1)+'%',f.c,fmt(tacNE,1)+'%'];
+      let tx2=ml;
+      row.forEach((v,i)=>{doc.text(String(v),tx2+1,y);tx2+=widths2[i];});
+      y+=5;
+    });
+    y+=4;
+  }
+
+  // ── Tabla OR / RR / Chi2 ──
+  if(foodStats.length) {
+    addSectionHeader('ESTADÍSTICA DE ASOCIACIÓN (OR, RR, χ², p-VALOR)');
+    const note='a=exp+caso, b=exp+nocaso, c=noexp+caso, d=noexp+nocaso. Corrección Haldane-Anscombe. *p<0.05 **p<0.01 ***p<0.001';
+    addText(note,7,[100,120,160]);
+    if(y+8>285){doc.addPage();y=mTop;}
+    const cols3=['Alimento','a','b','c','d','OR [IC95%]','RR [IC95%]','χ²','p-valor'];
+    const widths3=[38,8,8,8,8,38,38,12,24];
+    doc.setFillColor(30,47,82); let tx=ml;
+    doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(150,175,220);
+    cols3.forEach((c,i)=>{doc.rect(tx,y-4,widths3[i],6,'F');doc.text(c,tx+1,y);tx+=widths3[i];});
+    y+=3;
+    foodStats.forEach((f,ri)=>{
+      if(y+6>285){doc.addPage();y=mTop;}
+      if(ri%2===0){doc.setFillColor(22,38,68);doc.rect(ml,y-3,pw-ml-mr,6,'F');}
+      doc.setFont('helvetica','normal'); doc.setFontSize(7);
+      if(f.pval<0.05) doc.setTextColor(96,165,250); else doc.setTextColor(160,180,210);
+      const row=[f.food,f.a,f.b,f.c,f.d,`${fmt(f.OR)} [${fmt(f.orLow)}–${fmt(f.orHigh)}]`,`${fmt(f.RR)} [${fmt(f.rrLow)}–${fmt(f.rrHigh)}]`,fmt(f.chi2),pFmt(f.pval)];
+      let tx2=ml;
+      row.forEach((v,i)=>{
+        const lines=doc.splitTextToSize(String(v),widths3[i]-1);
+        doc.text(lines[0],tx2+1,y); tx2+=widths3[i];
+      });
+      y+=5;
+    });
+    y+=4;
+  }
+
+  // ── Tabla síntoma × alimento ──
+  if(symFoodMatrix.some(s=>s.bestFood)) {
+    addSectionHeader('ALIMENTO MÁS PROBABLE POR SÍNTOMA');
+    if(y+8>285){doc.addPage();y=mTop;}
+    const cols4=['Síntoma','Alimento más probable','OR','IC 95%','p-valor'];
+    const widths4=[40,50,18,34,30];
+    doc.setFillColor(30,47,82); let tx=ml;
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(150,175,220);
+    cols4.forEach((c,i)=>{doc.rect(tx,y-4,widths4[i],6,'F');doc.text(c,tx+1,y);tx+=widths4[i];});
+    y+=3;
+    symFoodMatrix.forEach((s,ri)=>{
+      if(!s.bestFood) return;
+      if(y+6>285){doc.addPage();y=mTop;}
+      if(ri%2===0){doc.setFillColor(22,38,68);doc.rect(ml,y-3,pw-ml-mr,6,'F');}
+      doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+      if(s.bestFood.pval<0.05) doc.setTextColor(96,165,250); else doc.setTextColor(160,180,210);
+      const row=[s.sym,s.bestFood.food,fmt(s.bestFood.OR),`[${fmt(s.bestFood.orLow)}–${fmt(s.bestFood.orHigh)}]`,pFmt(s.bestFood.pval)];
+      let tx2=ml;
+      row.forEach((v,i)=>{doc.text(String(v),tx2+1,y);tx2+=widths4[i];});
+      y+=5;
+    });
+    y+=4;
+  }
+
+  // ── Agentes causales ──
+  addSectionHeader('AGENTE CAUSAL MÁS PROBABLE — RANKING');
+  pathogenScores.slice(0,8).forEach((p,i)=>{
+    if(y+12>285){doc.addPage();y=mTop;}
+    if(i===0){doc.setFillColor(20,45,90);doc.rect(ml,y-4,pw-ml-mr,13,'F');}
+    doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
+    if(i===0) doc.setTextColor(96,165,250); else doc.setTextColor(150,170,210);
+    doc.text(`${i+1}. ${p.short}`,ml+2,y);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(130,155,200);
+    doc.text(`Score: ${p.score}/100 | Incub: ${p.incMin}–${p.incMax}h | Duración: ${p.duration} | ${p.keyFeatures}`,ml+2,y+5);
+    y+=11;
+  });
+  y+=4;
+
+  // ── Pie de página en todas las páginas ──
+  const totalPages=doc.internal.getNumberOfPages();
+  for(let pg=1;pg<=totalPages;pg++){
+    doc.setPage(pg);
+    doc.setFillColor(20,35,65); doc.rect(0,ph-14,pw,14,'F');
+    doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(100,130,190);
+    doc.text(`Dr. José Manuel Fernández Carreira · Servicio de Vigilancia Epidemiológica · Consejería de Salud · Principado de Asturias · Abril 2026`,ml,ph-8);
+    doc.text(`Página ${pg} de ${totalPages} · Generado: ${new Date().toLocaleString('es-ES')}`,pw-mr,ph-8,{align:'right'});
+  }
+
+  // Restaurar modo
+  if(wasDark) document.documentElement.classList.add('dark');
+
+  doc.save(`ToxiEvent_${appData.event.code||'brote'}_${new Date().toISOString().slice(0,10)}.pdf`);
+  showToast('PDF completo exportado ✓');
+}
+
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+// ════════════════════════════════════════════════════════════
+// EXPORT OUTCOMES CSV
+// ════════════════════════════════════════════════════════════
+function exportOutcomesCSV() {
+  const hdr=['Persona','Incubacion_h','Primer_Sintoma','Duracion_h',...appData.foods.map(f=>'Alim_'+f),...appData.symptoms.map(s=>'Sint_'+s),'Notas'];
+  const rows=appData.persons.map(p=>{const o=appData.outcomes[p]||{};return [p,o.incubation||'',o.firstSymptom||'',o.duration||'',...appData.foods.map(f=>(o.foods||[]).includes(f)?1:0),...appData.symptoms.map(s=>(o.symptoms||[]).includes(s)?1:0),`"${(o.notes||'').replace(/"/g,'""')}"`].join(',');});
+  const csv=[hdr.join(','),...rows].join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+  a.download=`ToxiEvent_outcomes_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); showToast('CSV exportado ✓');
+}
+
+// ════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', loadData);
+</script>
+</body>
+</html>
