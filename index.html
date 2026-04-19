@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>ToxiEvent v1.2 — Análisis de Brotes de Toxinfección Alimentaria</title>
+<title>ToxiEvent v1.3</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -11,1477 +11,1666 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
 <script>
-  tailwind.config = { darkMode:'class', theme:{ extend:{
-    fontFamily:{ display:['Syne','sans-serif'], body:['Instrument Sans','sans-serif'], mono:['DM Mono','monospace'] }
-  }}}
+  tailwind.config = {
+    darkMode: 'class',
+    theme: { extend: { fontFamily: { display:['Syne','sans-serif'], mono:['DM Mono','monospace'] } } }
+  };
 </script>
 <style>
-  * { font-family:'Instrument Sans',sans-serif; }
-  h1,h2,h3,.font-display { font-family:'Syne',sans-serif; }
-  .mono { font-family:'DM Mono',monospace; }
+/* ── Reset & fonts ── */
+*, *::before, *::after { box-sizing: border-box; }
+body, input, select, textarea, button { font-family: 'Instrument Sans', sans-serif; }
+.mono { font-family: 'DM Mono', monospace; }
 
-/* ── PALETA REFINADA V2 (Acentos Vibrantes) ── */
-  :root {
-    --bg:#0f172a; --surface:#1e293b; --surface2:#334155; --border:#475569;
-    --text:#f8fafc; --text2:#c9daf2; --accent:#8cd4f5; --accent2:#7dd3fc;
-    --muted:#91a6c4; --danger:#f43f5e; --warn:#fbbf24; --sig:#10b981;
-  }
+/* ── PALETA — modo oscuro (defecto) ── */
+:root {
+  --bg:#0f172a; --surface:#1e293b; --surface2:#334155; --border:#475569;
+  --text:#f8fafc; --text2:#c9daf2; --accent:#8cd4f5; --accent2:#7dd3fc;
+  --muted:#91a6c4; --danger:#f43f5e; --warn:#fbbf24; --sig:#10b981;
+}
+/* ── PALETA — modo claro ── */
+html:not(.dark) {
+  --bg:#f8fafc; --surface:#ffffff; --surface2:#f1f5f9; --border:#e2e8f0;
+  --text:#0f172a; --text2:#475569; --accent:#b2c8ed; --accent2:#9cc5f7;
+  --muted:#667180; --danger:#ef4444; --warn:#f59e0b; --sig:#10b981;
+}
 
-  html:not(.dark) {
-    --bg:#f8fafc; --surface:#ffffff; --surface2:#f1f5f9; --border:#e2e8f0;
-    --text:#0f172a; --text2:#475569; --accent:#b2c8ed; --accent2:#9cc5f7;
-    --muted:#667180; --danger:#ef4444; --warn:#f59e0b; --sig:#10b981;
-  }
+body { background:var(--bg); color:var(--text); min-height:100vh; transition:background .3s,color .3s; }
 
-  body { background:var(--bg); color:var(--text); transition:background .3s,color .3s; min-height:100vh; }
-  .card  { background:var(--surface);  border:1px solid var(--border); border-radius:12px; }
-  .card2 { background:var(--surface2); border:1px solid var(--border); border-radius:8px; }
-  .inp { background:var(--surface2); border:1px solid var(--border); color:var(--text); border-radius:6px; padding:7px 11px; width:100%; outline:none; transition:border-color .2s; font-size:14px; }
-  .inp::placeholder { color:var(--muted); }
-  .inp:focus { border-color:var(--accent); box-shadow:0 0 0 2px rgba(96,165,250,.2); }
-  select.inp option { background:var(--surface); color:var(--text); }
-  .btn-primary   { background:var(--accent); color:#0f172a; border-radius:7px; padding:8px 18px; font-weight:700; cursor:pointer; transition:opacity .2s; border:none; font-size:14px; }
-  .btn-primary:hover { opacity:.88; }
-  .btn-secondary { background:var(--surface2); border:1px solid var(--border); color:var(--text2); border-radius:7px; padding:8px 14px; font-weight:500; cursor:pointer; transition:all .2s; font-size:13px; }
-  .btn-secondary:hover { border-color:var(--accent); color:var(--accent); }
-  .btn-danger    { background:transparent; border:1px solid var(--danger); color:var(--danger); border-radius:5px; padding:3px 8px; font-size:12px; cursor:pointer; }
-  .tab { padding:11px 22px; cursor:pointer; border-bottom:2px solid transparent; font-weight:700; transition:all .2s; color:var(--muted); font-family:'Syne',sans-serif; letter-spacing:.03em; font-size:13px; }
-  .tab.active { border-bottom-color:var(--accent); color:var(--accent); }
-  .toast { position:fixed; bottom:24px; right:24px; background:var(--accent); color:#0f172a; padding:12px 20px; border-radius:8px; font-weight:700; z-index:9999; transform:translateY(80px); opacity:0; transition:all .3s; pointer-events:none; max-width:320px; }
-  .toast.show { transform:translateY(0); opacity:1; }
-  .sig { color:var(--sig); font-weight:700; }
-  .metric-card { background:linear-gradient(135deg,var(--surface),var(--surface2)); border:1px solid var(--border); border-radius:14px; padding:20px; }
-  .tag { display:inline-block; background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:3px 9px; font-size:12px; margin:2px; color:var(--text2); }
-  table { width:100%; border-collapse:collapse; font-size:13px; }
-  th { background:var(--surface2); color:var(--text2); padding:9px 10px; text-align:left; border-bottom:2px solid var(--border); font-family:'Syne',sans-serif; font-size:11px; letter-spacing:.05em; text-transform:uppercase; }
-  td { padding:8px 10px; border-bottom:1px solid var(--border); color:var(--text); }
-  tr:hover td { background:rgba(96,165,250,.06); }
-  .badge { display:inline-block; padding:2px 8px; border-radius:99px; font-size:11px; font-weight:700; }
-  .badge-blue   { background:rgba(96,165,250,.18);  color:#93c5fd; }
-  .badge-green  { background:rgba(52,211,153,.18);  color:#6ee7b7; }
-  .badge-red    { background:rgba(248,113,113,.18); color:#fca5a5; }
-  .badge-yellow { background:rgba(251,191,36,.18);  color:#fcd34d; }
-  .badge-purple { background:rgba(167,139,250,.18); color:#c4b5fd; }
-  .scrollbar-thin::-webkit-scrollbar        { height:4px; width:4px; }
-  .scrollbar-thin::-webkit-scrollbar-track  { background:transparent; }
-  .scrollbar-thin::-webkit-scrollbar-thumb  { background:var(--border); border-radius:2px; }
-  .section-header { font-family:'Syne',sans-serif; font-weight:700; font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:6px; }
-  label { color:var(--text2); }
+/* ── Cards ── */
+.card  { background:var(--surface);  border:1px solid var(--border); border-radius:12px; }
+.card2 { background:var(--surface2); border:1px solid var(--border); border-radius:8px; }
 
-  /* ── MODO SIMPLIFICADO — selector de modo ── */
-  .mode-selector { display:flex; gap:12px; }
-  .mode-option {
-    flex:1; padding:14px 16px; border-radius:10px; cursor:pointer;
-    border:2px solid var(--border); background:var(--surface2);
-    transition:all .2s; position:relative;
-  }
-  .mode-option:hover { border-color:var(--accent); }
-  .mode-option.selected { border-color:var(--accent); background:rgba(96,165,250,.1); }
-  .mode-option input[type=radio] { position:absolute; opacity:0; width:0; height:0; }
-  .mode-option-icon { font-size:22px; margin-bottom:6px; }
-  .mode-option-title { font-family:'Syne',sans-serif; font-weight:700; font-size:14px; color:var(--text); }
-  .mode-option-desc  { font-size:11px; color:var(--muted); margin-top:3px; line-height:1.4; }
-  .mode-dot { width:14px; height:14px; border-radius:50%; border:2px solid var(--muted); display:inline-block; margin-right:6px; vertical-align:middle; }
-  .mode-option.selected .mode-dot { border-color:var(--accent); background:var(--accent); }
+/* ── Inputs ── */
+.inp {
+  background:var(--surface2); border:1px solid var(--border); color:var(--text);
+  border-radius:6px; padding:7px 11px; width:100%; outline:none;
+  transition:border-color .2s; font-size:14px;
+}
+.inp::placeholder { color:var(--muted); }
+.inp:focus { border-color:var(--accent); box-shadow:0 0 0 2px rgba(140,212,245,.2); }
+select.inp option { background:var(--surface); color:var(--text); }
 
-  /* ── MODO SIMPLIFICADO — checkbox clínica ── */
-  .clinica-cb { width:20px; height:20px; accent-color:var(--accent); cursor:pointer; }
+/* ── Botones estándar ── */
+.btn-pri {
+  background:var(--accent); color:#0f172a; border:none;
+  border-radius:7px; padding:8px 18px; font-weight:700; font-size:14px;
+  cursor:pointer; transition:opacity .2s; white-space:nowrap;
+}
+.btn-pri:hover { opacity:.85; }
+.btn-sec {
+  background:var(--surface2); border:1px solid var(--border); color:var(--text2);
+  border-radius:7px; padding:7px 14px; font-weight:500; font-size:13px;
+  cursor:pointer; transition:all .2s; white-space:nowrap;
+}
+.btn-sec:hover { border-color:var(--accent); color:var(--accent); }
+.btn-del {
+  background:transparent; border:1px solid var(--danger); color:var(--danger);
+  border-radius:5px; padding:3px 8px; font-size:12px; cursor:pointer;
+}
+
+/* ── Toolbar buttons ── */
+.tb-btn {
+  display:inline-flex; align-items:center; gap:5px;
+  background:transparent; border:1px solid transparent;
+  color:var(--text2); border-radius:6px;
+  padding:5px 12px; font-size:12px; font-weight:600;
+  cursor:pointer; transition:all .18s; white-space:nowrap;
+}
+.tb-btn:hover { background:var(--surface2); border-color:var(--border); color:var(--text); }
+.tb-pri { background:var(--accent) !important; color:#0f172a !important; border-color:transparent !important; }
+.tb-pri:hover { opacity:.88; }
+.tb-sep { width:1px; height:20px; background:var(--border); margin:0 3px; flex-shrink:0; }
+
+/* ── Tabs ── */
+.tab {
+  padding:10px 20px; cursor:pointer; border-bottom:2px solid transparent;
+  font-weight:700; color:var(--muted); font-family:'Syne',sans-serif;
+  font-size:13px; letter-spacing:.03em; transition:all .2s; background:transparent; border-left:none; border-right:none; border-top:none;
+}
+.tab.active { border-bottom-color:var(--accent); color:var(--accent); }
+
+/* ── Toast ── */
+.toast {
+  position:fixed; bottom:24px; right:24px; z-index:9999;
+  background:var(--accent); color:#0f172a; padding:12px 20px;
+  border-radius:8px; font-weight:700; font-size:13px; max-width:340px;
+  transform:translateY(80px); opacity:0; pointer-events:none; transition:all .3s;
+}
+.toast.show { transform:translateY(0); opacity:1; }
+
+/* ── Tables ── */
+table { width:100%; border-collapse:collapse; font-size:13px; }
+th {
+  background:var(--surface2); color:var(--text2); padding:9px 10px;
+  text-align:left; border-bottom:2px solid var(--border);
+  font-family:'Syne',sans-serif; font-size:11px; letter-spacing:.05em; text-transform:uppercase;
+}
+td { padding:8px 10px; border-bottom:1px solid var(--border); color:var(--text); }
+tr:hover td { background:rgba(140,212,245,.05); }
+
+/* ── Misc ── */
+.badge {
+  display:inline-block; padding:2px 8px; border-radius:99px;
+  font-size:11px; font-weight:700;
+}
+.b-blue   { background:rgba(140,212,245,.18); color:#8cd4f5; }
+.b-green  { background:rgba(16,185,129,.18);  color:#34d399; }
+.b-yellow { background:rgba(251,191,36,.18);  color:#fcd34d; }
+.b-purple { background:rgba(167,139,250,.18); color:#c4b5fd; }
+.sig-color { color:var(--sig); font-weight:700; }
+.metric-card {
+  background:linear-gradient(135deg,var(--surface),var(--surface2));
+  border:1px solid var(--border); border-radius:14px; padding:20px;
+}
+.sec-hdr {
+  font-family:'Syne',sans-serif; font-weight:700; font-size:12px;
+  letter-spacing:.1em; text-transform:uppercase; color:var(--muted);
+  border-bottom:1px solid var(--border); padding-bottom:6px; margin-bottom:12px;
+}
+.tag {
+  display:inline-flex; align-items:center; gap:4px;
+  background:var(--surface2); border:1px solid var(--border);
+  border-radius:4px; padding:3px 9px; font-size:12px; color:var(--text2);
+}
+
+/* ── Scrollbars ── */
+::-webkit-scrollbar { width:4px; height:4px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+/* ── Mode pill ── */
+.mode-pill {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:3px 10px; border-radius:99px; font-size:11px; font-weight:700;
+  font-family:'Syne',sans-serif; border:1px solid;
+}
+.pill-adv  { background:rgba(140,212,245,.12); color:#8cd4f5; border-color:rgba(140,212,245,.35); }
+.pill-simp { background:rgba(167,139,250,.12); color:#c4b5fd; border-color:rgba(167,139,250,.35); }
+
+/* ── Modal backdrop ── */
+.modal-wrap {
+  display:none; position:fixed; inset:0; z-index:300;
+  background:rgba(0,0,0,.75); align-items:center; justify-content:center;
+}
+.modal-wrap.open { display:flex; }
+.modal-box {
+  background:var(--surface); border:1px solid var(--border); border-radius:14px;
+  padding:28px; width:100%; max-width:500px; margin:16px;
+  max-height:92vh; overflow-y:auto;
+}
+.modal-title { font-family:'Syne',sans-serif; font-weight:800; font-size:18px; color:var(--text); margin-bottom:4px; }
+.modal-sub   { font-size:13px; color:var(--muted); margin-bottom:20px; }
+
+/* ── Mode cards in new-analysis modal ── */
+.mode-card {
+  flex:1; padding:16px; border-radius:10px; cursor:pointer;
+  border:2px solid var(--border); background:var(--surface2); transition:all .2s;
+}
+.mode-card:hover { border-color:var(--accent); }
+.mode-card.sel   { border-color:var(--accent); background:rgba(140,212,245,.1); }
+
+/* ── Checkbox ── */
+.cb-food  { width:18px; height:18px; accent-color:var(--accent2); cursor:pointer; }
+.cb-sym   { width:18px; height:18px; accent-color:var(--warn);    cursor:pointer; }
+.cb-clin  { width:20px; height:20px; accent-color:var(--warn);    cursor:pointer; }
 </style>
 </head>
 <body>
 
+<!-- ══════════════ TOAST ══════════════ -->
 <div id="toast" class="toast"></div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     HEADER
-════════════════════════════════════════════════════════════ -->
-<header class="card sticky top-0 z-50 px-4 sm:px-8" style="border-radius:0;border-left:none;border-right:none;border-top:none">
-  <div class="max-w-7xl mx-auto flex items-center justify-between h-14">
-    <div class="flex items-center gap-3">
-      <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:var(--accent)">
-        <svg class="w-5 h-5" style="color:#0f172a" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-        </svg>
-      </div>
-      <span class="font-display font-800 text-lg tracking-tight" style="color:var(--text)">ToxiEvent</span>
-      <span class="hidden sm:inline-block text-xs mono px-2 py-0.5 rounded" style="background:var(--surface2);color:var(--accent);border:1px solid var(--border)">v1.2</span>
-    </div>
-    <div class="flex items-center gap-2 flex-wrap justify-end">
-      <!-- ── MODO SIMPLIFICADO — badge de modo en cabecera ── -->
-      <span id="mode-badge" class="hidden sm:inline-block text-xs px-2 py-0.5 rounded-full font-700" style="font-family:'Syne',sans-serif"></span>
-      <span id="event-name-badge" class="hidden sm:block text-xs px-3 py-1 rounded-full mono" style="background:var(--surface2);color:var(--accent);border:1px solid var(--border)"></span>
-      <button onclick="saveProject()"  class="btn-secondary text-xs" title="Guardar proyecto JSON">💾 Guardar</button>
-      <button onclick="document.getElementById('load-json-input').click()" class="btn-secondary text-xs" title="Cargar proyecto JSON">📂 Cargar</button>
-      <button onclick="toggleDark()" class="w-8 h-8 rounded-lg flex items-center justify-center btn-secondary" title="Modo claro/oscuro" style="font-size:16px">☀</button>
+<!-- ══════════════════════════════════════════════════════════
+     MODALES
+══════════════════════════════════════════════════════════ -->
+
+<!-- Modal: Confirmar guardar antes de reiniciar -->
+<div id="m-save-confirm" class="modal-wrap">
+  <div class="modal-box" style="max-width:400px">
+    <div class="modal-title">Cambios sin guardar</div>
+    <div class="modal-sub">Hay datos no guardados. ¿Deseas guardar antes de iniciar un nuevo análisis?</div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn-sec" onclick="closeModal('m-save-confirm')">Cancelar</button>
+      <button class="btn-sec" onclick="doDiscardNew()">No guardar</button>
+      <button class="btn-pri" onclick="doSaveNew()">💾 Guardar y continuar</button>
     </div>
   </div>
-  <div class="max-w-7xl mx-auto flex border-t" style="border-color:var(--border)">
-    <button class="tab active" onclick="showTab(0)">① Configuración</button>
-    <button class="tab"        onclick="showTab(1)">② Outcomes</button>
-    <button class="tab"        onclick="showTab(2)">③ Análisis</button>
+</div>
+
+<!-- Modal: Selección de modo para nuevo análisis -->
+<div id="m-new-mode" class="modal-wrap">
+  <div class="modal-box" style="max-width:480px">
+    <div class="modal-title">Nuevo Análisis</div>
+    <div class="modal-sub">Selecciona el modo de análisis.</div>
+    <div style="display:flex;gap:12px;margin-bottom:20px">
+      <div class="mode-card sel" id="mc-full" onclick="selectNewMode('full')" style="text-align:left">
+        <div style="font-size:22px;margin-bottom:6px">🔬</div>
+        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;color:var(--text)">Modo Avanzado</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.45">Síntomas detallados y personalizables. OR/RR por síntoma.</div>
+      </div>
+      <div class="mode-card" id="mc-simp" onclick="selectNewMode('simplified')" style="text-align:left">
+        <div style="font-size:22px;margin-bottom:6px">⚡</div>
+        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;color:var(--text)">Modo Simplificado</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.45">Solo clínica de toxinfección (Sí/No). Investigación rápida en campo.</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn-sec" onclick="closeModal('m-new-mode')">Cancelar</button>
+      <button class="btn-pri" onclick="confirmNewAnalysis()">Iniciar nuevo análisis</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Acerca de -->
+<div id="m-about" class="modal-wrap">
+  <div class="modal-box" style="max-width:440px;text-align:center">
+    <div style="margin-bottom:14px">
+      <div style="width:52px;height:52px;background:var(--accent);border-radius:12px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:10px">
+        <svg width="28" height="28" fill="none" stroke="#0f172a" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+      </div>
+      <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:22px;color:var(--text)">ToxiEvent</div>
+      <div class="mono" style="font-size:11px;color:var(--muted);margin-top:2px">v1.3 · Análisis de Brotes de Toxinfección Alimentaria</div>
+    </div>
+    <div style="border-top:1px solid var(--border);padding-top:16px;margin-bottom:14px">
+      <div style="font-size:13px;color:var(--text2);line-height:1.8">
+        <strong>José Manuel Fernández Carreira</strong> y el equipo de Vigilancia Epidemiológica:<br/>
+        Fernando Alonso · Sara Iglesias · Carlos Lasanta · Maria San Emeterio · Ana Fernández
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--border);padding-top:14px;font-size:12px;color:var(--muted);line-height:1.8">
+      Dirección General de Salud Pública<br/>
+      Consejería de Salud del Principado de Asturias<br/>
+      <span class="mono" style="font-size:11px">Abril 2026</span>
+    </div>
+    <div style="margin-top:20px">
+      <button class="btn-pri" onclick="closeModal('m-about')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Ayuda -->
+<div id="m-help" class="modal-wrap">
+  <div class="modal-box" style="max-width:420px">
+    <div class="modal-title">Ayuda</div>
+    <div class="modal-sub">ToxiEvent v1.3 · Guía de uso</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.8;margin-bottom:14px">
+      El manual completo está disponible en el archivo <span class="mono" style="background:var(--surface2);padding:1px 6px;border-radius:3px;font-size:12px">ToxiEvent.pdf</span> en el directorio de la aplicación.
+    </div>
+    <div style="background:var(--surface2);border-radius:8px;padding:14px;margin-bottom:14px">
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:8px">Flujo de trabajo</div>
+      <ol style="padding-left:16px;font-size:12px;color:var(--muted);line-height:2">
+        <li><strong style="color:var(--text2)">Nuevo análisis</strong> → elige modo y comienza</li>
+        <li><strong style="color:var(--text2)">Configuración</strong> → evento, personas, alimentos, síntomas</li>
+        <li><strong style="color:var(--text2)">Outcomes</strong> → registra datos por persona</li>
+        <li><strong style="color:var(--text2)">Análisis</strong> → ejecuta y revisa resultados</li>
+        <li><strong style="color:var(--text2)">Exportar</strong> → PDF, Excel o CSV</li>
+      </ol>
+    </div>
+    <div style="font-size:11px;color:var(--muted)">💡 Los datos se guardan automáticamente en el navegador (localStorage). Usa <em>Guardar</em> para backups portables en JSON.</div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+      <button class="btn-sec" onclick="closeModal('m-help')">Cerrar</button>
+      <button class="btn-pri" onclick="openPDFHelp()">📄 Abrir manual PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Bulk Fill -->
+<div id="m-bulk" class="modal-wrap">
+  <div class="modal-box" style="max-width:520px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div class="modal-title" style="margin-bottom:0">Rellenado Masivo</div>
+      <button class="btn-del" onclick="closeModal('m-bulk')">✕</button>
+    </div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px">Aplica valores a varias personas a la vez.</p>
+    <div id="bulk-persons" style="background:var(--surface2);border-radius:8px;padding:10px;max-height:130px;overflow-y:auto;margin-bottom:14px"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div><label style="font-size:11px;display:block;margin-bottom:4px;color:var(--text2)">Incubación (h)</label><input id="bulk-inc" type="number" step="0.5" class="inp" placeholder="—"/></div>
+      <div><label style="font-size:11px;display:block;margin-bottom:4px;color:var(--text2)">Duración (h)</label><input id="bulk-dur" type="number" step="0.5" class="inp" placeholder="—"/></div>
+    </div>
+    <div id="bulk-full-block" style="margin-bottom:12px">
+      <div style="margin-bottom:10px"><label style="font-size:11px;display:block;margin-bottom:4px;color:var(--text2)">Primer síntoma</label><select id="bulk-fs" class="inp"></select></div>
+      <div><label style="font-size:11px;display:block;margin-bottom:6px;color:var(--text2)">Síntomas</label><div id="bulk-syms" style="display:flex;flex-wrap:wrap;gap:8px"></div></div>
+    </div>
+    <div id="bulk-simp-block" style="display:none;margin-bottom:12px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:var(--text)">
+        <input type="checkbox" id="bulk-clin" style="width:18px;height:18px;accent-color:var(--accent)"/>
+        Clínica de toxinfección (caso)
+      </label>
+    </div>
+    <div style="margin-bottom:16px"><label style="font-size:11px;display:block;margin-bottom:6px;color:var(--text2)">Alimentos consumidos</label><div id="bulk-foods" style="display:flex;flex-wrap:wrap;gap:8px"></div></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn-pri" style="flex:1" onclick="applyBulk()">Aplicar a seleccionados</button>
+      <button class="btn-sec" onclick="closeModal('m-bulk')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     HEADER
+══════════════════════════════════════════════════════════ -->
+<header class="card" style="border-radius:0;border-left:none;border-right:none;border-top:none;position:sticky;top:0;z-index:100">
+  <!-- Fila 1: logo + toolbar + badges -->
+  <div style="max-width:1280px;margin:0 auto;padding:8px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <!-- Logo -->
+    <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+      <div style="width:30px;height:30px;border-radius:8px;background:var(--accent);display:flex;align-items:center;justify-content:center">
+        <svg width="18" height="18" fill="none" stroke="#0f172a" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+      </div>
+      <span style="font-family:'Syne',sans-serif;font-weight:800;font-size:17px;color:var(--text)">ToxiEvent</span>
+      <span class="mono" style="font-size:10px;padding:1px 6px;border-radius:4px;background:var(--surface2);color:var(--muted);border:1px solid var(--border)">v1.3</span>
+    </div>
+    <div class="tb-sep"></div>
+    <!-- TOOLBAR -->
+    <div style="display:flex;align-items:center;gap:3px;flex-wrap:wrap;flex:1">
+      <button class="tb-btn tb-pri" onclick="requestNew()">＋ Nuevo análisis</button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" onclick="triggerLoad()">📂 Cargar</button>
+      <button class="tb-btn" id="btn-save" onclick="doSave()">💾 <span id="save-lbl">Guardar</span></button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" onclick="triggerImport()">↑ Importar CSV</button>
+      <button class="tb-btn" onclick="exportOutcomesCSV()">↓ Exportar CSV</button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" onclick="openModal('m-help')">❓ Ayuda</button>
+      <button class="tb-btn" onclick="openModal('m-about')">ℹ Acerca de</button>
+    </div>
+    <!-- Derecha: badges + toggle dark -->
+    <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+      <span id="dirty-dot" style="display:none;font-size:11px;color:var(--warn);font-weight:700" title="Cambios sin guardar">●</span>
+      <span id="mode-badge"></span>
+      <span id="ev-badge" style="display:none;font-size:11px;padding:3px 10px;border-radius:99px;background:var(--surface2);color:var(--accent);border:1px solid var(--border)" class="mono"></span>
+      <button onclick="toggleDark()" style="width:32px;height:32px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:15px;transition:all .2s" title="Modo claro/oscuro">☀</button>
+    </div>
+  </div>
+  <!-- Fila 2: tabs -->
+  <div style="max-width:1280px;margin:0 auto;padding:0 20px;display:flex;border-top:1px solid var(--border)">
+    <button class="tab active" id="tab-btn-0" onclick="showTab(0)">① Configuración</button>
+    <button class="tab"        id="tab-btn-1" onclick="showTab(1)">② Outcomes</button>
+    <button class="tab"        id="tab-btn-2" onclick="showTab(2)">③ Análisis</button>
   </div>
 </header>
 
-<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+<!-- ══════════════════════════════════════════════════════════
+     MAIN
+══════════════════════════════════════════════════════════ -->
+<main style="max-width:1280px;margin:0 auto;padding:24px 20px">
 
-<!-- ═══════════════════════════════════════════════════════════
-     TAB 0 — CONFIGURACIÓN
-════════════════════════════════════════════════════════════ -->
+<!-- ═══════════ TAB 0: CONFIGURACIÓN ═══════════ -->
 <div id="tab-0">
-
-  <!-- ── MODO SIMPLIFICADO — selector de modo (siempre visible, primera card) ── -->
-  <div class="card p-5 mb-6">
-    <div class="section-header">Modo de operación</div>
-    <div class="mode-selector" id="mode-selector-ui">
-      <div class="mode-option" id="mode-opt-full" onclick="setMode('full')">
-        <input type="radio" name="appmode" value="full"/>
-        <span class="mode-dot" id="dot-full"></span>
-        <div class="mode-option-icon">🔬</div>
-        <div class="mode-option-title">Modo Avanzado</div>
-        <div class="mode-option-desc">Síntomas detallados y personalizables. Análisis completo con OR/RR por síntoma.</div>
-      </div>
-      <div class="mode-option" id="mode-opt-simplified" onclick="setMode('simplified')">
-        <input type="radio" name="appmode" value="simplified"/>
-        <span class="mode-dot" id="dot-simplified"></span>
-        <div class="mode-option-icon">⚡</div>
-        <div class="mode-option-title">Modo Simplificado</div>
-        <div class="mode-option-desc">Solo clínica de toxinfección (Sí/No). Ideal para investigaciones rápidas en campo.</div>
-      </div>
+  <!-- Info de modo (solo informativo) -->
+  <div class="card" style="padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span id="mode-info-pill"></span>
+      <span id="mode-info-desc" style="font-size:12px;color:var(--muted)"></span>
     </div>
-    <div id="mode-change-warning" class="hidden mt-3 text-xs px-3 py-2 rounded" style="background:rgba(251,191,36,.12);color:var(--warn);border:1px solid rgba(251,191,36,.3)">
-      ⚠️ Ya hay datos de outcomes registrados. Para cambiar de modo debes limpiar los outcomes primero o cargar un nuevo proyecto.
-    </div>
+    <span style="font-size:11px;color:var(--muted)">Para cambiar el modo usa <strong style="color:var(--text2)">Nuevo análisis</strong></span>
   </div>
 
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px">
 
     <!-- Identificación del evento -->
-    <div class="card p-5 space-y-4">
-      <div class="section-header">Identificación del Evento</div>
-      <div>
-        <label class="text-xs font-600 block mb-1">Nombre del evento</label>
-        <input id="ev-name" class="inp" placeholder="Ej: Banquete Ayuntamiento 2026" oninput="saveData()"/>
+    <div class="card" style="padding:20px">
+      <div class="sec-hdr">Identificación del Evento</div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;color:var(--text2)">Nombre del evento</label>
+        <input id="ev-name" class="inp" placeholder="Ej: Banquete Ayuntamiento 2026" oninput="onEvChange()"/>
       </div>
-      <div class="grid grid-cols-2 gap-3">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div>
-          <label class="text-xs font-600 block mb-1">Fecha y hora</label>
-          <input id="ev-date" type="datetime-local" class="inp" oninput="saveData()"/>
+          <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;color:var(--text2)">Fecha y hora</label>
+          <input id="ev-date" type="datetime-local" class="inp" oninput="onEvChange()"/>
         </div>
         <div>
-          <label class="text-xs font-600 block mb-1">Código interno</label>
-          <input id="ev-code" class="inp" placeholder="EV-2026-001" oninput="saveData()"/>
+          <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;color:var(--text2)">Código interno</label>
+          <input id="ev-code" class="inp" placeholder="EV-2026-001" oninput="onEvChange()"/>
         </div>
       </div>
     </div>
 
-    <!-- ── MODO SIMPLIFICADO — card síntomas: oculta en modo simplificado ── -->
-    <div class="card p-5 space-y-3" id="symptoms-card">
-      <div class="section-header">Síntomas</div>
-      <div class="flex gap-2 flex-wrap">
-        <input id="new-symptom" class="inp flex-1 min-w-0" placeholder="Nuevo síntoma..." onkeydown="if(event.key==='Enter')addSymptom()"/>
-        <button class="btn-primary" onclick="addSymptom()">+ Añadir</button>
-        <button class="btn-secondary text-xs" onclick="importCSV('symptom')">CSV</button>
-        <button class="btn-secondary text-xs" title="Restaurar predeterminados" onclick="restoreDefaultSymptoms()">↺</button>
+    <!-- Síntomas (oculto en modo simplificado) -->
+    <div class="card" id="symptoms-card" style="padding:20px">
+      <div class="sec-hdr">Síntomas</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <input id="new-sym" class="inp" style="flex:1;min-width:0" placeholder="Nuevo síntoma..." onkeydown="if(event.key==='Enter')addSymptom()"/>
+        <button class="btn-pri" onclick="addSymptom()">+ Añadir</button>
+        <button class="btn-sec" style="font-size:12px" onclick="importListCSV('symptom')">CSV</button>
+        <button class="btn-sec" style="font-size:12px" title="Restaurar" onclick="restoreSymptoms()">↺</button>
       </div>
-      <div id="symptom-list" class="flex flex-wrap gap-2 min-h-8"></div>
+      <div id="sym-list" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px"></div>
     </div>
 
     <!-- Personas -->
-    <div class="card p-5 space-y-3">
-      <div class="section-header">Personas expuestas</div>
-      <div class="flex gap-2">
+    <div class="card" style="padding:20px">
+      <div class="sec-hdr">Personas expuestas</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
         <input id="new-person" class="inp" placeholder="Nombre o ID..." onkeydown="if(event.key==='Enter')addPerson()"/>
-        <button class="btn-primary whitespace-nowrap" onclick="addPerson()">+ Añadir</button>
-        <button class="btn-secondary text-xs" onclick="importCSV('person')">CSV</button>
+        <button class="btn-pri" style="white-space:nowrap" onclick="addPerson()">+ Añadir</button>
+        <button class="btn-sec" style="font-size:12px" onclick="importListCSV('person')">CSV</button>
       </div>
-      <div id="person-list" class="space-y-1 max-h-48 overflow-y-auto scrollbar-thin"></div>
-      <div class="text-xs mono" style="color:var(--muted)"><span id="person-count">0</span> personas registradas</div>
+      <div id="person-list" style="max-height:180px;overflow-y:auto"></div>
+      <div class="mono" style="font-size:11px;color:var(--muted);margin-top:6px"><span id="person-count">0</span> personas</div>
     </div>
 
     <!-- Alimentos -->
-    <div class="card p-5 space-y-3">
-      <div class="section-header">Alimentos servidos</div>
-      <div class="flex gap-2">
+    <div class="card" style="padding:20px">
+      <div class="sec-hdr">Alimentos servidos</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
         <input id="new-food" class="inp" placeholder="Nombre del alimento..." onkeydown="if(event.key==='Enter')addFood()"/>
-        <button class="btn-primary whitespace-nowrap" onclick="addFood()">+ Añadir</button>
-        <button class="btn-secondary text-xs" onclick="importCSV('food')">CSV</button>
+        <button class="btn-pri" style="white-space:nowrap" onclick="addFood()">+ Añadir</button>
+        <button class="btn-sec" style="font-size:12px" onclick="importListCSV('food')">CSV</button>
       </div>
-      <div id="food-list" class="space-y-1 max-h-48 overflow-y-auto scrollbar-thin"></div>
-      <div class="text-xs mono" style="color:var(--muted)"><span id="food-count">0</span> alimentos registrados</div>
+      <div id="food-list" style="max-height:180px;overflow-y:auto"></div>
+      <div class="mono" style="font-size:11px;color:var(--muted);margin-top:6px"><span id="food-count">0</span> alimentos</div>
     </div>
 
   </div>
-  <div class="flex justify-end mt-4">
-    <button class="btn-primary px-6 py-2.5 text-base" onclick="showTab(1)">Continuar → Outcomes</button>
+  <div style="display:flex;justify-content:flex-end;margin-top:16px">
+    <button class="btn-pri" style="padding:10px 24px;font-size:15px" onclick="showTab(1)">Continuar → Outcomes</button>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     TAB 1 — OUTCOMES
-════════════════════════════════════════════════════════════ -->
-<div id="tab-1" class="hidden">
-
-  <div class="card p-4 flex flex-wrap gap-3 items-center justify-between mb-4">
-    <div class="flex gap-2 flex-wrap">
-      <button class="btn-secondary text-sm" onclick="openBulkFill()">✦ Rellenado masivo</button>
-      <button class="btn-secondary text-sm" onclick="exportOutcomesCSV()">↓ CSV</button>
+<!-- ═══════════ TAB 1: OUTCOMES ═══════════ -->
+<div id="tab-1" style="display:none">
+  <div class="card" style="padding:14px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div style="display:flex;gap:8px">
+      <button class="btn-sec" onclick="openBulk()">✦ Rellenado masivo</button>
     </div>
-    <div class="text-xs mono" style="color:var(--muted)">
-      <span id="outcomes-filled">0</span> / <span id="outcomes-total">0</span> registros con datos
+    <div class="mono" style="font-size:11px;color:var(--muted)">
+      <span id="out-filled">0</span> / <span id="out-total">0</span> registros con datos
     </div>
   </div>
-
-  <!-- Modal Bulk Fill -->
-  <div id="bulk-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(0,0,0,.75)">
-    <div class="card p-6 w-full max-w-lg mx-4 space-y-4" style="max-height:90vh;overflow-y:auto">
-      <div class="flex justify-between items-center">
-        <h3 class="font-display font-700 text-lg">Rellenado Masivo</h3>
-        <button onclick="closeBulk()" class="btn-danger">✕</button>
-      </div>
-      <p class="text-xs" style="color:var(--muted)">Selecciona personas y aplica valores comunes.</p>
-      <div id="bulk-person-checkboxes" class="space-y-1 max-h-40 overflow-y-auto scrollbar-thin card2 p-3"></div>
-      <div class="grid grid-cols-2 gap-3">
-        <div><label class="text-xs block mb-1">Incubación (h)</label><input id="bulk-incubation" type="number" step="0.5" class="inp" placeholder="—"/></div>
-        <div><label class="text-xs block mb-1">Duración síntomas (h)</label><input id="bulk-duration" type="number" step="0.5" class="inp" placeholder="—"/></div>
-      </div>
-      <!-- ── MODO SIMPLIFICADO — campos del bulk que cambian según modo ── -->
-      <div id="bulk-full-fields">
-        <div class="mb-3"><label class="text-xs block mb-1">Primer síntoma</label><select id="bulk-first-symptom" class="inp"></select></div>
-        <div><label class="text-xs block mb-1">Síntomas presentados</label><div id="bulk-symptom-checks" class="flex flex-wrap gap-2"></div></div>
-      </div>
-      <div id="bulk-simplified-fields" class="hidden">
-        <label class="flex items-center gap-2 text-sm cursor-pointer" style="color:var(--text)">
-          <input type="checkbox" id="bulk-clinica-cb" style="width:18px;height:18px;accent-color:var(--accent)"/>
-          Clínica de toxinfección (caso)
-        </label>
-      </div>
-      <div><label class="text-xs block mb-1">Alimentos consumidos</label><div id="bulk-food-checks" class="flex flex-wrap gap-2"></div></div>
-      <div class="flex gap-3 pt-2">
-        <button class="btn-primary flex-1" onclick="applyBulkFill()">Aplicar a seleccionados</button>
-        <button class="btn-secondary" onclick="closeBulk()">Cancelar</button>
-      </div>
-    </div>
+  <div class="card" style="overflow:hidden">
+    <div style="overflow-x:auto"><div id="outcomes-tbl"></div></div>
   </div>
-
-  <div class="card overflow-hidden">
-    <div class="overflow-x-auto scrollbar-thin">
-      <div id="outcomes-table-container"></div>
-    </div>
-  </div>
-
-  <div class="flex justify-end mt-4">
-    <button class="btn-primary px-6 py-2.5 text-base" onclick="showTab(2);runAnalysis()">Ejecutar Análisis Completo →</button>
+  <div style="display:flex;justify-content:flex-end;margin-top:16px">
+    <button class="btn-pri" style="padding:10px 24px;font-size:15px" onclick="showTab(2);runAnalysis()">Ejecutar Análisis Completo →</button>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     TAB 2 — ANÁLISIS
-════════════════════════════════════════════════════════════ -->
-<div id="tab-2" class="hidden">
-  <div class="flex flex-wrap gap-3 mb-6 items-center justify-between">
-    <button class="btn-primary px-6 py-2.5 text-base font-display" onclick="runAnalysis()">⚡ Ejecutar Análisis Completo</button>
-    <div class="flex gap-2">
-      <button class="btn-secondary" onclick="exportExcel()">↓ Excel</button>
-      <button class="btn-secondary" onclick="exportPDF()">↓ PDF (completo)</button>
+<!-- ═══════════ TAB 2: ANÁLISIS ═══════════ -->
+<div id="tab-2" style="display:none">
+  <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px;align-items:center;justify-content:space-between">
+    <button class="btn-pri" style="padding:10px 24px;font-size:15px" onclick="runAnalysis()">⚡ Ejecutar Análisis Completo</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn-sec" onclick="exportExcel()">↓ Excel</button>
+      <button class="btn-sec" onclick="exportPDF()">↓ PDF completo</button>
     </div>
   </div>
-  <div id="analysis-output" class="space-y-6"></div>
+  <div id="analysis-out" style="display:flex;flex-direction:column;gap:20px"></div>
 </div>
 
 </main>
 
-<!-- FOOTER -->
-<footer class="mt-12 border-t py-6 px-6" style="border-color:var(--border)">
-  <div class="max-w-7xl mx-auto text-center space-y-1">
-    <div class="text-xs font-600" style="color:var(--text2)">José Manuel Fernández Carreira y el equipo de Vigilancia Epidemiológica</div>
-    <div class="text-xs" style="color:var(--muted)">Fernando Alonso · Sara Iglesias · Carlos Lasanta · Maria San Emeterio · Ana Fernández </div>
-    <div class="text-xs" style="color:var(--muted)">Dirección General de Salud Pública · Consejería de Salud del Principado de Asturias</div>
-  </div>
-</footer>
+<!-- Hidden file inputs -->
+<input type="file" id="fi-list"   accept=".csv,.txt" style="display:none" onchange="handleListCSV(event)"/>
+<input type="file" id="fi-import" accept=".csv"      style="display:none" onchange="handleImportCSV(event)"/>
+<input type="file" id="fi-load"   accept=".json"     style="display:none" onchange="handleLoadJSON(event)"/>
 
-<input type="file" id="file-import"     accept=".csv,.txt" class="hidden" onchange="handleFileImport(event)"/>
-<input type="file" id="load-json-input" accept=".json"     class="hidden" onchange="loadProject(event)"/>
-
-<!-- ═══════════════════════════════════════════════════════════
+<!-- ══════════════════════════════════════════════════════════
      JAVASCRIPT
-════════════════════════════════════════════════════════════ -->
+══════════════════════════════════════════════════════════ -->
 <script>
-// ════════════════════════════════════════════════════════════
-// CONSTANTES MODO SIMPLIFICADO
-// ════════════════════════════════════════════════════════════
-// ── MODO SIMPLIFICADO — síntoma fijo interno ──
-const SIMPLIFIED_SYMPTOM = 'Clínica de toxinfección';
-const PRIMARY_SYMPTOMS    = ['vómitos','diarrea','fiebre'];
-
-// ════════════════════════════════════════════════════════════
-// STATE — campo mode añadido ('full' | 'simplified')
-// ════════════════════════════════════════════════════════════
-let appData = {
-  event:    { name:'', date:'', code:'' },
-  persons:  [],
-  foods:    [],
-  symptoms: ['Vómitos','Diarrea','Fiebre'],
-  outcomes: {},
-  mode:     'full'   // ── MODO SIMPLIFICADO — nuevo campo ──
-};
-let importTarget   = '';
-let chartInstances = {};
-
-// ════════════════════════════════════════════════════════════
-// PATHOGENS TABLE
-// ════════════════════════════════════════════════════════════
-const PATHOGENS = [
-  { short:'S. aureus (toxina)',          cie:'005.0/A05.0', incMin:1,   incMax:8,    incTypical:2,   duration:'1-2 d',         symptoms:['vómitos','náuseas','diarrea','dolor abdominal'],          vehicles:['alimentos','cremas','mayonesa','lácteos'],              keyFeatures:'Vómitos muy intensos, inicio rápido, sin fiebre' },
-  { short:'C. perfringens',              cie:'005.2/A05.2', incMin:6,   incMax:24,   incTypical:10,  duration:'1 d',           symptoms:['diarrea','dolor abdominal','náuseas'],                    vehicles:['carnes cocinadas','guisos','alimentos'],                 keyFeatures:'Sin vómitos prominentes, sin fiebre, cólico severo' },
-  { short:'B. cereus (emético)',         cie:'005.8/A05.4', incMin:1,   incMax:6,    incTypical:3,   duration:'1 d',           symptoms:['vómitos','náuseas','diarrea'],                            vehicles:['arroz','cereales','alimentos'],                          keyFeatures:'Arroz recalentado, vómitos, inicio rápido' },
-  { short:'B. cereus (diarreico)',       cie:'005.8/A05.4', incMin:6,   incMax:24,   incTypical:10,  duration:'1 d',           symptoms:['diarrea','dolor abdominal'],                              vehicles:['carnes','verduras','salsas'],                            keyFeatures:'Forma diarreica, incubación más larga' },
-  { short:'Salmonella spp.',             cie:'003/A02.0',   incMin:6,   incMax:72,   incTypical:24,  duration:'variable',      symptoms:['fiebre','diarrea','vómitos','náuseas','cefalea'],         vehicles:['huevos','carne de ave','alimentos animales','agua'],     keyFeatures:'Fiebre + diarrea + vómitos, huevos/aves' },
-  { short:'Norovirus',                   cie:'078.8/A08.1', incMin:10,  incMax:50,   incTypical:24,  duration:'24-48 h',       symptoms:['vómitos','náuseas','diarrea','fiebre'],                   vehicles:['agua','persona-persona','alimentos','bivalvos'],         keyFeatures:'Muy contagioso, vómitos explosivos, brotes en eventos' },
-  { short:'C. botulinum',                cie:'005.1/A05.1', incMin:12,  incMax:36,   incTypical:18,  duration:'meses',         symptoms:['parálisis','diplopía','disfagia'],                        vehicles:['conservas','vegetales enlatados','alimentos'],           keyFeatures:'Síntomas neurológicos, conservas caseras' },
-  { short:'E. coli ETEC',               cie:'008.0/A04.1', incMin:10,  incMax:12,   incTypical:10,  duration:'5 d',           symptoms:['diarrea','dolor abdominal','vómitos'],                    vehicles:['agua','alimentos'],                                     keyFeatures:'Diarrea del viajero, sin sangre' },
-  { short:'E. coli O157:H7',            cie:'008.0/A04.3', incMin:72,  incMax:120,  incTypical:96,  duration:'variable',      symptoms:['diarrea sanguinolenta','dolor abdominal','diarrea'],      vehicles:['carne picada','leche','agua'],                           keyFeatures:'Diarrea hemorrágica, carne poco cocinada' },
-  { short:'Campylobacter',              cie:'008.4/A04.5', incMin:24,  incMax:240,  incTypical:72,  duration:'2-5 d',         symptoms:['diarrea','fiebre','vómitos','dolor abdominal'],           vehicles:['carne de ave','leche','agua'],                           keyFeatures:'Fiebre alta, diarrea hemorrágica, aves' },
-  { short:'V. parahaemolyticus',        cie:'005.4/A05.3', incMin:4,   incMax:30,   incTypical:12,  duration:'1-7 d',         symptoms:['diarrea','dolor abdominal','náuseas'],                    vehicles:['marisco','pescado','alimentos marinos'],                 keyFeatures:'Mariscos crudos o poco cocinados' },
-  { short:'Shigella',                   cie:'004/A03',     incMin:12,  incMax:96,   incTypical:48,  duration:'4-7 d',         symptoms:['diarrea','fiebre','náuseas','vómitos'],                   vehicles:['persona-persona','alimentos','leche','agua'],            keyFeatures:'Tenesmo rectal, disentería' },
-  { short:'Listeria monocytogenes',     cie:'027.0/A32',   incMin:72,  incMax:3600, incTypical:504, duration:'variable',      symptoms:['fiebre','meningitis'],                                    vehicles:['lácteos','vegetales','comidas preparadas'],              keyFeatures:'Embarazadas/inmunodeprimidos, incubación muy larga' },
-  { short:'Hepatitis A',                cie:'070.1/B15',   incMin:360, incMax:1440, incTypical:720, duration:'semanas-meses', symptoms:['fiebre','ictericia','malestar'],                          vehicles:['agua','alimentos','persona-persona'],                    keyFeatures:'Ictericia, incubación muy larga (2-6 semanas)' },
-  { short:'Trichinella',                cie:'124/B75',     incMin:120, incMax:360,  incTypical:192, duration:'variable',      symptoms:['fiebre','diarrea','mialgia'],                             vehicles:['carne de cerdo sin control'],                            keyFeatures:'Edema periorbitario, mialgias, cerdo sin control' },
-  { short:'Histamina (escómbridos)',    cie:'988.0/T61.2', incMin:0.08,incMax:2,    incTypical:0.5, duration:'12 h',          symptoms:['náuseas','vómitos','rash','cefalea','fiebre'],            vehicles:['pescados escómbridos','atún','caballa'],                 keyFeatures:'Inicio en minutos, flush, parestesias, pescado' },
-  { short:'Toxina paralítica moluscos', cie:'998.0/T61.2', incMin:0.08,incMax:3,    incTypical:0.5, duration:'días',          symptoms:['parestesias','náuseas','vómitos'],                        vehicles:['moluscos bivalvos'],                                     keyFeatures:'Parestesias neurológicas, bivalvos' },
-  { short:'Yersinia',                   cie:'027.8/A04.6', incMin:72,  incMax:168,  incTypical:96,  duration:'3-7 d',         symptoms:['diarrea','fiebre','dolor abdominal'],                     vehicles:['carne porcino','agua','persona-persona'],                keyFeatures:'Simula apendicitis, fiebre prolongada' },
-  { short:'Rotavirus',                  cie:'008.8/A08.0', incMin:24,  incMax:72,   incTypical:48,  duration:'días',          symptoms:['vómitos','diarrea','fiebre'],                             vehicles:['persona-persona','agua'],                               keyFeatures:'Principalmente niños, temporada invernal' }
+/* ════════════════════════════════════════════════════════════
+   CONSTANTES
+════════════════════════════════════════════════════════════ */
+var SIMP_SYM = 'Clínica de toxinfección';
+var PRIMARY_SYMS = ['vómitos', 'diarrea', 'fiebre'];
+var PATHOGENS = [
+  {short:'S. aureus (toxina)',          incMin:1,   incMax:8,    duration:'1-2 d',         symptoms:['vómitos','náuseas','diarrea'],           vehicles:['alimentos','mayonesa','lácteos'],            keyFeatures:'Vómitos intensos, inicio rápido, sin fiebre'},
+  {short:'C. perfringens',              incMin:6,   incMax:24,   duration:'1 d',           symptoms:['diarrea','dolor abdominal','náuseas'],   vehicles:['carnes cocinadas','guisos'],                 keyFeatures:'Sin vómitos ni fiebre, cólico severo'},
+  {short:'B. cereus (emético)',         incMin:1,   incMax:6,    duration:'1 d',           symptoms:['vómitos','náuseas','diarrea'],           vehicles:['arroz','cereales'],                          keyFeatures:'Arroz recalentado, vómitos, inicio rápido'},
+  {short:'B. cereus (diarreico)',       incMin:6,   incMax:24,   duration:'1 d',           symptoms:['diarrea','dolor abdominal'],             vehicles:['carnes','verduras','salsas'],                keyFeatures:'Forma diarreica, incubación larga'},
+  {short:'Salmonella spp.',             incMin:6,   incMax:72,   duration:'variable',      symptoms:['fiebre','diarrea','vómitos','náuseas'], vehicles:['huevos','carne de ave','agua'],              keyFeatures:'Fiebre + diarrea + vómitos, huevos/aves'},
+  {short:'Norovirus',                   incMin:10,  incMax:50,   duration:'24-48 h',       symptoms:['vómitos','náuseas','diarrea','fiebre'], vehicles:['agua','persona-persona','bivalvos'],         keyFeatures:'Muy contagioso, vómitos explosivos'},
+  {short:'C. botulinum',                incMin:12,  incMax:36,   duration:'meses',         symptoms:['parálisis','diplopía','disfagia'],       vehicles:['conservas','vegetales enlatados'],           keyFeatures:'Síntomas neurológicos, conservas'},
+  {short:'E. coli ETEC',               incMin:10,  incMax:12,   duration:'5 d',           symptoms:['diarrea','dolor abdominal','vómitos'],   vehicles:['agua','alimentos'],                          keyFeatures:'Diarrea del viajero, sin sangre'},
+  {short:'E. coli O157:H7',            incMin:72,  incMax:120,  duration:'variable',      symptoms:['diarrea sanguinolenta','diarrea'],       vehicles:['carne picada','leche','agua'],               keyFeatures:'Diarrea hemorrágica, carne poco cocinada'},
+  {short:'Campylobacter',              incMin:24,  incMax:240,  duration:'2-5 d',         symptoms:['diarrea','fiebre','vómitos'],            vehicles:['carne de ave','leche','agua'],               keyFeatures:'Fiebre alta, diarrea hemorrágica'},
+  {short:'V. parahaemolyticus',        incMin:4,   incMax:30,   duration:'1-7 d',         symptoms:['diarrea','dolor abdominal','náuseas'],   vehicles:['marisco','pescado'],                         keyFeatures:'Mariscos crudos'},
+  {short:'Shigella',                   incMin:12,  incMax:96,   duration:'4-7 d',         symptoms:['diarrea','fiebre','náuseas','vómitos'],  vehicles:['persona-persona','alimentos','agua'],        keyFeatures:'Tenesmo rectal, disentería'},
+  {short:'Listeria monocytogenes',     incMin:72,  incMax:3600, duration:'variable',      symptoms:['fiebre','meningitis'],                   vehicles:['lácteos','vegetales','comidas preparadas'], keyFeatures:'Inmunodeprimidos, incubación muy larga'},
+  {short:'Hepatitis A',                incMin:360, incMax:1440, duration:'semanas-meses', symptoms:['fiebre','ictericia','malestar'],         vehicles:['agua','alimentos','persona-persona'],        keyFeatures:'Ictericia, incubación 2-6 semanas'},
+  {short:'Trichinella',                incMin:120, incMax:360,  duration:'variable',      symptoms:['fiebre','diarrea','mialgia'],            vehicles:['carne de cerdo sin control'],                keyFeatures:'Edema periorbitario, mialgias'},
+  {short:'Histamina (escómbridos)',    incMin:0.08,incMax:2,    duration:'12 h',          symptoms:['náuseas','vómitos','rash','cefalea'],    vehicles:['atún','caballa','escómbridos'],              keyFeatures:'Inicio en minutos, flush, parestesias'},
+  {short:'Toxina paralítica moluscos', incMin:0.08,incMax:3,    duration:'días',          symptoms:['parestesias','náuseas','vómitos'],       vehicles:['moluscos bivalvos'],                         keyFeatures:'Parestesias neurológicas'},
+  {short:'Yersinia',                   incMin:72,  incMax:168,  duration:'3-7 d',         symptoms:['diarrea','fiebre','dolor abdominal'],    vehicles:['carne porcino','agua'],                      keyFeatures:'Simula apendicitis'},
+  {short:'Rotavirus',                  incMin:24,  incMax:72,   duration:'días',          symptoms:['vómitos','diarrea','fiebre'],            vehicles:['persona-persona','agua'],                    keyFeatures:'Principalmente niños'}
 ];
 
-// ════════════════════════════════════════════════════════════
-// UTILS
-// ════════════════════════════════════════════════════════════
-function showToast(msg, ms=2800) {
-  const t=document.getElementById('toast');
-  t.textContent=msg; t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'), ms);
+/* ════════════════════════════════════════════════════════════
+   ESTADO
+════════════════════════════════════════════════════════════ */
+var appData = {
+  event: {name:'', date:'', code:''},
+  persons: [],
+  foods: [],
+  symptoms: ['Vómitos','Diarrea','Fiebre'],
+  outcomes: {},
+  mode: 'full'
+};
+var dirty = false;
+var pendingMode = 'full';
+var listImportTarget = '';
+var charts = {};
+
+/* ════════════════════════════════════════════════════════════
+   UTILIDADES
+════════════════════════════════════════════════════════════ */
+function isSimp() { return appData.mode === 'simplified'; }
+
+function showToast(msg, ms) {
+  ms = ms || 2800;
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, ms);
 }
+
 function toggleDark() {
-  document.documentElement.classList.toggle('dark');
-  localStorage.setItem('toxievent_dark', document.documentElement.classList.contains('dark'));
+  var html = document.documentElement;
+  html.classList.toggle('dark');
+  localStorage.setItem('toxievent_dark', html.classList.contains('dark') ? '1' : '0');
 }
-function saveData() {
-  appData.event.name = document.getElementById('ev-name').value;
-  appData.event.date = document.getElementById('ev-date').value;
-  appData.event.code = document.getElementById('ev-code').value;
-  localStorage.setItem('toxievent_data', JSON.stringify(appData));
-  updateEventBadge();
+
+function fmt(n, d) {
+  d = d === undefined ? 2 : d;
+  if (!isFinite(n) || n > 999) return '>999';
+  return parseFloat(n.toFixed(d));
 }
-function loadData() {
-  const saved = localStorage.getItem('toxievent_data');
-  if(saved) { try { appData = JSON.parse(saved); } catch(e){} }
-  // Compatibilidad con proyectos anteriores sin campo mode
-  if(!appData.mode) appData.mode = 'full';
-  const isDark = localStorage.getItem('toxievent_dark') !== 'false';
-  if(!isDark) document.documentElement.classList.remove('dark');
-  document.getElementById('ev-name').value = appData.event.name||'';
-  document.getElementById('ev-date').value = appData.event.date||'';
-  document.getElementById('ev-code').value = appData.event.code||'';
-  renderSymptoms(); renderPersons(); renderFoods(); updateEventBadge();
-  applyModeUI(); // ── MODO SIMPLIFICADO ──
+
+function pFmt(p) {
+  if (p < 0.001) return '<0.001 ***';
+  if (p < 0.01)  return p.toFixed(3) + ' **';
+  if (p < 0.05)  return p.toFixed(3) + ' *';
+  return p.toFixed(3);
 }
-function updateEventBadge() {
-  const b=document.getElementById('event-name-badge');
-  if(appData.event.name){ b.textContent=appData.event.name; b.classList.remove('hidden'); }
-  else b.classList.add('hidden');
+
+function esc(s) { return (s || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+function median(arr) {
+  if (!arr.length) return null;
+  var s = arr.slice().sort(function(a,b){return a-b;});
+  var m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m-1] + s[m]) / 2;
 }
-function fmt(n,d=2){ if(!isFinite(n)||n>999) return '>999'; return parseFloat(n.toFixed(d)); }
-function pFmt(p){ if(p<0.001) return '<0.001 ***'; if(p<0.01) return p.toFixed(3)+' **'; if(p<0.05) return p.toFixed(3)+' *'; return p.toFixed(3); }
-function esc(s){ return (s||'').replace(/\\/g,'\\\\').replace(/'/g,'\\\''); }
-function median(arr){ if(!arr.length) return null; const s=[...arr].sort((a,b)=>a-b),m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; }
-function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
-function hasOutcomeData() {
-  return appData.persons.some(p=>{
-    const o=appData.outcomes[p]||{};
+
+function sleep(ms) { return new Promise(function(r){ setTimeout(r, ms); }); }
+
+function hasData() {
+  return appData.persons.some(function(p) {
+    var o = appData.outcomes[p] || {};
     return o.incubation || (o.symptoms||[]).length || (o.foods||[]).length;
   });
 }
 
-// ════════════════════════════════════════════════════════════
-// ── MODO SIMPLIFICADO — gestión del modo ──
-// ════════════════════════════════════════════════════════════
-function isSimplified() { return appData.mode === 'simplified'; }
-
-function setMode(newMode) {
-  if(newMode === appData.mode) return;
-  // Aviso si hay datos que se perderían
-  if(hasOutcomeData()) {
-    document.getElementById('mode-change-warning').classList.remove('hidden');
-    return; // No cambia
-  }
-  document.getElementById('mode-change-warning').classList.add('hidden');
-  appData.mode = newMode;
-  // En modo simplificado fijamos el síntoma interno
-  if(isSimplified()) appData.symptoms = [SIMPLIFIED_SYMPTOM];
-  else               appData.symptoms = ['Vómitos','Diarrea','Fiebre'];
-  saveData();
-  applyModeUI();
-  renderSymptoms();
-  showToast(newMode==='simplified' ? 'Modo Simplificado activado' : 'Modo Avanzado activado');
+/* ════════════════════════════════════════════════════════════
+   DIRTY FLAG
+════════════════════════════════════════════════════════════ */
+function markDirty() {
+  dirty = true;
+  document.getElementById('dirty-dot').style.display = 'inline';
+  document.getElementById('save-lbl').textContent = 'Guardar *';
+}
+function clearDirty() {
+  dirty = false;
+  document.getElementById('dirty-dot').style.display = 'none';
+  document.getElementById('save-lbl').textContent = 'Guardar';
 }
 
-function applyModeUI() {
-  const simplified = isSimplified();
-  // Selector visual
-  document.getElementById('mode-opt-full').classList.toggle('selected', !simplified);
-  document.getElementById('mode-opt-simplified').classList.toggle('selected', simplified);
-  document.getElementById('dot-full').style.background        = !simplified ? 'var(--accent)' : '';
-  document.getElementById('dot-full').style.borderColor       = !simplified ? 'var(--accent)' : '';
-  document.getElementById('dot-simplified').style.background  = simplified  ? 'var(--accent)' : '';
-  document.getElementById('dot-simplified').style.borderColor = simplified  ? 'var(--accent)' : '';
-  // Ocultar/mostrar card de síntomas
-  document.getElementById('symptoms-card').style.display = simplified ? 'none' : '';
-  // Badge en cabecera
-  const badge = document.getElementById('mode-badge');
-  if(simplified){
-    badge.textContent = '⚡ Simplificado';
-    badge.style.background = 'rgba(167,139,250,.18)';
-    badge.style.color = '#c4b5fd';
-    badge.style.border = '1px solid rgba(167,139,250,.3)';
+/* ════════════════════════════════════════════════════════════
+   MODALES
+════════════════════════════════════════════════════════════ */
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openPDFHelp()  { window.open('ToxiEvent.pdf', '_blank'); closeModal('m-help'); }
+
+/* ════════════════════════════════════════════════════════════
+   NUEVO ANÁLISIS
+════════════════════════════════════════════════════════════ */
+function requestNew() {
+  pendingMode = appData.mode;
+  updateNewModeUI(pendingMode);
+  if (dirty && hasData()) {
+    openModal('m-save-confirm');
   } else {
-    badge.textContent = '🔬 Avanzado';
-    badge.style.background = 'rgba(96,165,250,.18)';
-    badge.style.color = '#93c5fd';
-    badge.style.border = '1px solid rgba(96,165,250,.3)';
+    openModal('m-new-mode');
   }
 }
+function doDiscardNew() { closeModal('m-save-confirm'); openModal('m-new-mode'); }
+function doSaveNew()    { closeModal('m-save-confirm'); doSave(); openModal('m-new-mode'); }
+function selectNewMode(m) {
+  pendingMode = m;
+  updateNewModeUI(m);
+}
+function updateNewModeUI(m) {
+  document.getElementById('mc-full').classList.toggle('sel', m === 'full');
+  document.getElementById('mc-simp').classList.toggle('sel', m === 'simplified');
+}
+function confirmNewAnalysis() {
+  closeModal('m-new-mode');
+  Object.values(charts).forEach(function(c){ try{ c.destroy(); }catch(e){} });
+  charts = {};
+  document.getElementById('analysis-out').innerHTML = '';
+  appData = {
+    event: {name:'', date:'', code:''},
+    persons: [],
+    foods: [],
+    symptoms: pendingMode === 'simplified' ? [SIMP_SYM] : ['Vómitos','Diarrea','Fiebre'],
+    outcomes: {},
+    mode: pendingMode
+  };
+  document.getElementById('ev-name').value = '';
+  document.getElementById('ev-date').value = '';
+  document.getElementById('ev-code').value = '';
+  localStorage.setItem('toxievent_data', JSON.stringify(appData));
+  clearDirty();
+  renderAll();
+  showTab(0);
+  showToast('Nuevo análisis iniciado · ' + (pendingMode === 'simplified' ? 'Modo Simplificado' : 'Modo Avanzado'));
+}
 
-// ════════════════════════════════════════════════════════════
-// SAVE / LOAD PROJECT JSON
-// ════════════════════════════════════════════════════════════
-function saveProject() {
-  const name = (appData.event.code||'toxievent')+'_'+new Date().toISOString().slice(0,10);
-  const blob = new Blob([JSON.stringify(appData,null,2)], {type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = name+'.json'; a.click();
+/* ════════════════════════════════════════════════════════════
+   GUARDAR / CARGAR JSON
+════════════════════════════════════════════════════════════ */
+function doSave() {
+  syncEventFields();
+  var name = (appData.event.code || 'toxievent') + '_' + new Date().toISOString().slice(0,10);
+  var blob = new Blob([JSON.stringify(appData, null, 2)], {type:'application/json'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name + '.json';
+  a.click();
+  clearDirty();
   showToast('Proyecto guardado ✓');
 }
-function loadProject(e) {
-  const file=e.target.files[0]; if(!file) return;
-  const reader=new FileReader();
-  reader.onload=ev=>{
+function triggerLoad()   { document.getElementById('fi-load').click(); }
+function triggerImport() { document.getElementById('fi-import').click(); }
+function handleLoadJSON(e) {
+  var file = e.target.files[0]; if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
     try {
       appData = JSON.parse(ev.target.result);
-      if(!appData.mode) appData.mode='full'; // compatibilidad
+      if (!appData.mode) appData.mode = 'full';
       localStorage.setItem('toxievent_data', JSON.stringify(appData));
-      document.getElementById('ev-name').value = appData.event.name||'';
-      document.getElementById('ev-date').value = appData.event.date||'';
-      document.getElementById('ev-code').value = appData.event.code||'';
-      renderSymptoms(); renderPersons(); renderFoods(); updateEventBadge();
-      applyModeUI(); // ── MODO SIMPLIFICADO ──
-      document.getElementById('mode-change-warning').classList.add('hidden');
+      document.getElementById('ev-name').value = appData.event.name || '';
+      document.getElementById('ev-date').value = appData.event.date || '';
+      document.getElementById('ev-code').value = appData.event.code || '';
+      clearDirty();
+      renderAll();
       showToast('Proyecto cargado ✓');
-    } catch(err){ showToast('Error al cargar JSON'); }
+    } catch(err) { showToast('Error al cargar JSON'); }
   };
-  reader.readAsText(file); e.target.value='';
+  reader.readAsText(file);
+  e.target.value = '';
 }
 
-// ════════════════════════════════════════════════════════════
-// TABS
-// ════════════════════════════════════════════════════════════
+function syncEventFields() {
+  appData.event.name = document.getElementById('ev-name').value;
+  appData.event.date = document.getElementById('ev-date').value;
+  appData.event.code = document.getElementById('ev-code').value;
+}
+function saveData() {
+  syncEventFields();
+  localStorage.setItem('toxievent_data', JSON.stringify(appData));
+  renderEvBadge();
+}
+function onEvChange() { markDirty(); saveData(); }
+
+function loadFromStorage() {
+  var saved = localStorage.getItem('toxievent_data');
+  if (saved) { try { appData = JSON.parse(saved); } catch(e){} }
+  if (!appData.mode) appData.mode = 'full';
+  var darkPref = localStorage.getItem('toxievent_dark');
+  if (darkPref === '0') document.documentElement.classList.remove('dark');
+  document.getElementById('ev-name').value = appData.event.name || '';
+  document.getElementById('ev-date').value = appData.event.date || '';
+  document.getElementById('ev-code').value = appData.event.code || '';
+  renderAll();
+}
+
+/* ════════════════════════════════════════════════════════════
+   RENDER GLOBAL
+════════════════════════════════════════════════════════════ */
+function renderAll() {
+  applyModeUI();
+  renderSymptoms();
+  renderPersons();
+  renderFoods();
+  renderEvBadge();
+}
+
+function renderEvBadge() {
+  var b = document.getElementById('ev-badge');
+  if (appData.event.name) { b.textContent = appData.event.name; b.style.display = 'inline'; }
+  else b.style.display = 'none';
+}
+
+/* ════════════════════════════════════════════════════════════
+   MODO UI
+════════════════════════════════════════════════════════════ */
+function applyModeUI() {
+  var s = isSimp();
+  // Header badge
+  var mb = document.getElementById('mode-badge');
+  mb.className = 'mode-pill ' + (s ? 'pill-simp' : 'pill-adv');
+  mb.textContent = s ? '⚡ Simplificado' : '🔬 Avanzado';
+  // Info bar
+  var ip = document.getElementById('mode-info-pill');
+  ip.className = 'mode-pill ' + (s ? 'pill-simp' : 'pill-adv');
+  ip.textContent = s ? '⚡ Modo Simplificado' : '🔬 Modo Avanzado';
+  document.getElementById('mode-info-desc').textContent = s
+    ? 'Solo clínica de toxinfección (Sí/No).'
+    : 'Síntomas detallados y personalizables.';
+  // Mostrar/ocultar card síntomas
+  document.getElementById('symptoms-card').style.display = s ? 'none' : '';
+  if (s) appData.symptoms = [SIMP_SYM];
+}
+
+/* ════════════════════════════════════════════════════════════
+   TABS
+════════════════════════════════════════════════════════════ */
 function showTab(n) {
-  [0,1,2].forEach(i=>{
-    document.getElementById(`tab-${i}`).classList.toggle('hidden', i!==n);
-    document.querySelectorAll('.tab')[i].classList.toggle('active', i===n);
+  ['tab-0','tab-1','tab-2'].forEach(function(id, i){
+    document.getElementById(id).style.display = (i === n) ? '' : 'none';
+    document.getElementById('tab-btn-' + i).classList.toggle('active', i === n);
   });
-  if(n===1) renderOutcomesTable();
+  if (n === 1) renderOutcomesTable();
 }
 
-// ════════════════════════════════════════════════════════════
-// SYMPTOMS (solo modo avanzado)
-// ════════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════
+   SÍNTOMAS
+════════════════════════════════════════════════════════════ */
 function addSymptom() {
-  if(isSimplified()) return; // ── MODO SIMPLIFICADO ──
-  const v=document.getElementById('new-symptom').value.trim();
-  if(!v||appData.symptoms.includes(v)){ if(v) showToast('Ya existe'); return; }
+  if (isSimp()) return;
+  var v = document.getElementById('new-sym').value.trim();
+  if (!v || appData.symptoms.indexOf(v) >= 0) { if(v) showToast('Ya existe'); return; }
   appData.symptoms.push(v);
-  document.getElementById('new-symptom').value='';
-  renderSymptoms(); saveData();
+  document.getElementById('new-sym').value = '';
+  renderSymptoms(); markDirty(); saveData();
 }
 function removeSymptom(s) {
-  if(isSimplified()) return; // ── MODO SIMPLIFICADO ──
-  appData.symptoms=appData.symptoms.filter(x=>x!==s);
-  renderSymptoms(); saveData();
+  if (isSimp()) return;
+  appData.symptoms = appData.symptoms.filter(function(x){ return x !== s; });
+  renderSymptoms(); markDirty(); saveData();
 }
-function restoreDefaultSymptoms() {
-  if(isSimplified()) return; // ── MODO SIMPLIFICADO ──
-  appData.symptoms=['Vómitos','Diarrea','Fiebre'];
-  renderSymptoms(); saveData(); showToast('Síntomas restaurados');
+function restoreSymptoms() {
+  if (isSimp()) return;
+  appData.symptoms = ['Vómitos','Diarrea','Fiebre'];
+  renderSymptoms(); markDirty(); saveData(); showToast('Síntomas restaurados');
 }
 function renderSymptoms() {
-  // ── MODO SIMPLIFICADO — en simplificado no renderizamos la lista ──
-  if(isSimplified()) { document.getElementById('symptom-list').innerHTML=''; return; }
-  document.getElementById('symptom-list').innerHTML = appData.symptoms.map(s=>
-    `<span class="tag flex items-center gap-1">${s}<button onclick="removeSymptom('${esc(s)}')" style="color:var(--danger);margin-left:4px;font-size:11px;background:none;border:none;cursor:pointer">✕</button></span>`
-  ).join('');
+  if (isSimp()) { document.getElementById('sym-list').innerHTML = ''; return; }
+  document.getElementById('sym-list').innerHTML = appData.symptoms.map(function(s) {
+    return '<span class="tag">' + s +
+      '<button onclick="removeSymptom(\'' + esc(s) + '\')" style="background:none;border:none;cursor:pointer;color:var(--danger);margin-left:4px;font-size:11px;padding:0;line-height:1">✕</button>' +
+      '</span>';
+  }).join('');
 }
 
-// ════════════════════════════════════════════════════════════
-// PERSONS
-// ════════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════
+   PERSONAS
+════════════════════════════════════════════════════════════ */
 function addPerson(name) {
-  const v=name||document.getElementById('new-person').value.trim();
-  if(!v) return;
-  if(appData.persons.includes(v)){ showToast('Ya existe'); return; }
+  var v = name || document.getElementById('new-person').value.trim();
+  if (!v) return;
+  if (appData.persons.indexOf(v) >= 0) { showToast('Ya existe'); return; }
   appData.persons.push(v);
-  if(!appData.outcomes[v]) appData.outcomes[v]={incubation:'',firstSymptom:'',duration:'',foods:[],symptoms:[],notes:''};
-  document.getElementById('new-person').value='';
-  renderPersons(); saveData();
+  if (!appData.outcomes[v]) appData.outcomes[v] = {incubation:'',firstSymptom:'',duration:'',foods:[],symptoms:[],notes:''};
+  document.getElementById('new-person').value = '';
+  renderPersons(); markDirty(); saveData();
 }
 function removePerson(p) {
-  appData.persons=appData.persons.filter(x=>x!==p);
-  delete appData.outcomes[p]; renderPersons(); saveData();
+  appData.persons = appData.persons.filter(function(x){ return x !== p; });
+  delete appData.outcomes[p];
+  renderPersons(); markDirty(); saveData();
 }
 function renderPersons() {
-  document.getElementById('person-list').innerHTML=appData.persons.map(p=>
-    `<div class="flex items-center justify-between py-1.5 px-3 rounded" style="background:var(--surface2)">
-      <span class="text-sm" style="color:var(--text)">${p}</span>
-      <button class="btn-danger" onclick="removePerson('${esc(p)}')">✕</button>
-    </div>`).join('');
-  document.getElementById('person-count').textContent=appData.persons.length;
+  document.getElementById('person-list').innerHTML = appData.persons.map(function(p) {
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-radius:6px;background:var(--surface2);margin-bottom:4px">' +
+      '<span style="font-size:13px;color:var(--text)">' + p + '</span>' +
+      '<button class="btn-del" onclick="removePerson(\'' + esc(p) + '\')">✕</button>' +
+      '</div>';
+  }).join('');
+  document.getElementById('person-count').textContent = appData.persons.length;
 }
 
-// ════════════════════════════════════════════════════════════
-// FOODS
-// ════════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════
+   ALIMENTOS
+════════════════════════════════════════════════════════════ */
 function addFood(name) {
-  const v=name||document.getElementById('new-food').value.trim();
-  if(!v) return;
-  if(appData.foods.includes(v)){ showToast('Ya existe'); return; }
-  appData.foods.push(v); document.getElementById('new-food').value='';
-  renderFoods(); saveData();
+  var v = name || document.getElementById('new-food').value.trim();
+  if (!v) return;
+  if (appData.foods.indexOf(v) >= 0) { showToast('Ya existe'); return; }
+  appData.foods.push(v);
+  document.getElementById('new-food').value = '';
+  renderFoods(); markDirty(); saveData();
 }
 function removeFood(f) {
-  appData.foods=appData.foods.filter(x=>x!==f); renderFoods(); saveData();
+  appData.foods = appData.foods.filter(function(x){ return x !== f; });
+  renderFoods(); markDirty(); saveData();
 }
 function renderFoods() {
-  document.getElementById('food-list').innerHTML=appData.foods.map(f=>
-    `<div class="flex items-center justify-between py-1.5 px-3 rounded" style="background:var(--surface2)">
-      <span class="text-sm" style="color:var(--text)">${f}</span>
-      <button class="btn-danger" onclick="removeFood('${esc(f)}')">✕</button>
-    </div>`).join('');
-  document.getElementById('food-count').textContent=appData.foods.length;
+  document.getElementById('food-list').innerHTML = appData.foods.map(function(f) {
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-radius:6px;background:var(--surface2);margin-bottom:4px">' +
+      '<span style="font-size:13px;color:var(--text)">' + f + '</span>' +
+      '<button class="btn-del" onclick="removeFood(\'' + esc(f) + '\')">✕</button>' +
+      '</div>';
+  }).join('');
+  document.getElementById('food-count').textContent = appData.foods.length;
 }
 
-// ════════════════════════════════════════════════════════════
-// CSV IMPORT
-// ════════════════════════════════════════════════════════════
-function importCSV(target){ importTarget=target; document.getElementById('file-import').click(); }
-function handleFileImport(e) {
-  const file=e.target.files[0]; if(!file) return;
-  const reader=new FileReader();
-  reader.onload=ev=>{
-    const lines=ev.target.result.split(/[\n,;\t]+/).map(l=>l.trim()).filter(Boolean);
-    lines.forEach(l=>{
-      if(importTarget==='person')  addPerson(l);
-      else if(importTarget==='food') addFood(l);
-      else if(importTarget==='symptom'&&!isSimplified()){ if(!appData.symptoms.includes(l)) appData.symptoms.push(l); }
+/* ════════════════════════════════════════════════════════════
+   CSV IMPORT — listas simples (personas / alimentos / síntomas)
+════════════════════════════════════════════════════════════ */
+function importListCSV(target) { listImportTarget = target; document.getElementById('fi-list').click(); }
+function handleListCSV(e) {
+  var file = e.target.files[0]; if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    var lines = ev.target.result.split(/[\n,;\t]+/).map(function(l){ return l.trim(); }).filter(Boolean);
+    lines.forEach(function(l) {
+      if (listImportTarget === 'person')  addPerson(l);
+      else if (listImportTarget === 'food') addFood(l);
+      else if (listImportTarget === 'symptom' && !isSimp()) {
+        if (appData.symptoms.indexOf(l) < 0) appData.symptoms.push(l);
+      }
     });
-    if(importTarget==='symptom') renderSymptoms();
-    saveData(); showToast(`${lines.length} elementos importados`);
+    if (listImportTarget === 'symptom') renderSymptoms();
+    markDirty(); saveData();
+    showToast(lines.length + ' elementos importados');
   };
-  reader.readAsText(file); e.target.value='';
+  reader.readAsText(file); e.target.value = '';
 }
 
-// ════════════════════════════════════════════════════════════
-// ── MODO SIMPLIFICADO — OUTCOMES TABLE ──
-// Modo avanzado: columnas completas con síntomas y dropdown
-// Modo simplificado: elimina 1er Síntoma; checkbox único "Clínica"
-// ════════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════
+   IMPORTAR CSV OUTCOMES — autodetección de modo
+════════════════════════════════════════════════════════════ */
+function handleImportCSV(e) {
+  var file = e.target.files[0]; if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      var text = ev.target.result;
+      var lines = text.split('\n').map(function(l){ return l.trim(); }).filter(Boolean);
+      if (!lines.length) { showToast('CSV vacío'); return; }
+      var header = lines[0].split(',').map(function(h){ return h.trim().replace(/^"|"$/g,''); });
+      var isSimpCSV = header.indexOf('Clinica_TIA') >= 0;
+      var detectedMode = isSimpCSV ? 'simplified' : 'full';
+      if (detectedMode !== appData.mode) {
+        if (hasData()) {
+          if (!confirm('El CSV es de modo ' + (isSimpCSV?'Simplificado':'Avanzado') + ' pero el proyecto es ' + (isSimp()?'Simplificado':'Avanzado') + '.\n¿Cambiar de modo? Se perderán los outcomes actuales.')) {
+            e.target.value = ''; return;
+          }
+          appData.outcomes = {};
+        }
+        appData.mode = detectedMode;
+        if (detectedMode === 'simplified') appData.symptoms = [SIMP_SYM];
+        else appData.symptoms = ['Vómitos','Diarrea','Fiebre'];
+        applyModeUI();
+      }
+      var foodCols  = header.filter(function(h){ return h.indexOf('Alim_') === 0; }).map(function(h){ return h.slice(5); });
+      var symptCols = header.filter(function(h){ return h.indexOf('Sint_') === 0; }).map(function(h){ return h.slice(5); });
+      foodCols.forEach(function(f){ if (appData.foods.indexOf(f) < 0) addFood(f); });
+      if (!isSimpCSV) symptCols.forEach(function(s){ if (appData.symptoms.indexOf(s) < 0) appData.symptoms.push(s); });
+      var imported = 0;
+      for (var i = 1; i < lines.length; i++) {
+        var row = parseCSVRow(lines[i]);
+        if (!row.length) continue;
+        function get(col) { var idx = header.indexOf(col); return idx >= 0 ? (row[idx]||'').trim() : ''; }
+        var persona = get('Persona'); if (!persona) continue;
+        if (appData.persons.indexOf(persona) < 0) {
+          appData.persons.push(persona);
+          appData.outcomes[persona] = {incubation:'',firstSymptom:'',duration:'',foods:[],symptoms:[],notes:''};
+        }
+        var o = appData.outcomes[persona];
+        o.incubation = get('Incubacion_h');
+        o.duration   = get('Duracion_h');
+        o.notes      = get('Notas');
+        if (isSimpCSV) {
+          o.symptoms = get('Clinica_TIA') === '1' ? [SIMP_SYM] : [];
+        } else {
+          o.firstSymptom = get('Primer_Sintoma');
+          o.symptoms = symptCols.filter(function(s){ return get('Sint_'+s) === '1'; });
+        }
+        o.foods = foodCols.filter(function(f){ return get('Alim_'+f) === '1'; });
+        o.foods.forEach(function(f){ if (appData.foods.indexOf(f) < 0) appData.foods.push(f); });
+        imported++;
+      }
+      markDirty(); saveData(); renderAll();
+      if (document.getElementById('tab-1').style.display !== 'none') renderOutcomesTable();
+      showToast(imported + ' personas importadas desde CSV');
+    } catch(err) { showToast('Error CSV: ' + err.message); }
+  };
+  reader.readAsText(file); e.target.value = '';
+}
+function parseCSVRow(line) {
+  var result = [], re = /("([^"]|"")*"|[^,]*)(,|$)/g, m;
+  while ((m = re.exec(line)) !== null) {
+    var val = m[1];
+    if (val.charAt(0) === '"' && val.charAt(val.length-1) === '"') val = val.slice(1,-1).replace(/""/g,'"');
+    result.push(val);
+    if (m[3] === '') break;
+  }
+  return result;
+}
+
+/* ════════════════════════════════════════════════════════════
+   OUTCOMES TABLE
+════════════════════════════════════════════════════════════ */
 function renderOutcomesTable() {
-  const c=document.getElementById('outcomes-table-container');
-  if(!appData.persons.length){
-    c.innerHTML='<div class="p-10 text-center" style="color:var(--muted)">Añade personas en la pestaña Configuración</div>'; return;
+  var cont = document.getElementById('outcomes-tbl');
+  if (!appData.persons.length) {
+    cont.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">Añade personas en la pestaña Configuración</div>';
+    return;
   }
+  var s = isSimp();
+  var html = '<table><thead><tr>' +
+    '<th style="position:sticky;left:0;z-index:10;background:var(--surface2);min-width:130px">Persona</th>' +
+    '<th style="min-width:90px">Incub.(h)</th>' +
+    (!s ? '<th style="min-width:130px">1er Síntoma</th>' : '') +
+    '<th style="min-width:90px">Duración(h)</th>' +
+    appData.foods.map(function(f){ return '<th style="text-align:center;min-width:80px;color:var(--accent2)">' + f + '</th>'; }).join('') +
+    (s
+      ? '<th style="text-align:center;min-width:110px;color:var(--warn)">Clínica TIA</th>'
+      : appData.symptoms.map(function(sym){ return '<th style="text-align:center;min-width:80px;color:var(--warn)">' + sym + '</th>'; }).join('')
+    ) +
+    '<th style="min-width:160px">Notas</th>' +
+    '</tr></thead><tbody>';
 
-  const simplified = isSimplified(); // ── MODO SIMPLIFICADO ──
-
-  let html=`<table><thead><tr>
-    <th class="sticky left-0 z-10" style="background:var(--surface2);min-width:140px">Persona</th>
-    <th style="min-width:90px">Incub.(h)</th>
-    ${!simplified ? `<th style="min-width:130px">1er Síntoma</th>` : ''}
-    <th style="min-width:90px">Duración(h)</th>
-    ${appData.foods.map(f=>`<th class="text-center" style="min-width:80px;color:var(--accent2)">${f}</th>`).join('')}
-    ${simplified
-      // ── MODO SIMPLIFICADO — columna única ──
-      ? `<th class="text-center" style="min-width:120px;color:var(--warn)">Clínica<br>toxinfección</th>`
-      : appData.symptoms.map(s=>`<th class="text-center" style="min-width:80px;color:var(--warn)">${s}</th>`).join('')
-    }
-    <th style="min-width:160px">Notas</th>
-  </tr></thead><tbody>`;
-
-  appData.persons.forEach(p=>{
-    const o=appData.outcomes[p]||{};
-    // ── MODO SIMPLIFICADO — caso = tiene SIMPLIFIED_SYMPTOM en symptoms ──
-    const isCase = simplified
-      ? (o.symptoms||[]).includes(SIMPLIFIED_SYMPTOM)
-      : (o.symptoms||[]).length>0;
-
-    html+=`<tr>
-      <td class="sticky left-0 z-10 font-600" style="background:var(--surface);color:var(--text)">${p}</td>
-      <td><input type="number" step="0.5" min="0" class="inp" style="width:80px" value="${o.incubation||''}"
-          onchange="updateOutcome('${esc(p)}','incubation',this.value)"/></td>
-      ${!simplified ? `
-      <td><select class="inp" style="width:120px" onchange="updateOutcome('${esc(p)}','firstSymptom',this.value)">
-        <option value="">—</option>
-        ${appData.symptoms.map(s=>`<option ${o.firstSymptom===s?'selected':''}>${s}</option>`).join('')}
-      </select></td>` : ''}
-      <td><input type="number" step="0.5" min="0" class="inp" style="width:80px" value="${o.duration||''}"
-          onchange="updateOutcome('${esc(p)}','duration',this.value)"/></td>
-      ${appData.foods.map(f=>`
-      <td class="text-center"><input type="checkbox" class="clinica-cb"
-          style="accent-color:var(--accent2)"
-          ${(o.foods||[]).includes(f)?'checked':''}
-          onchange="updateOutcomeCheck('${esc(p)}','foods','${esc(f)}',this.checked)"/></td>`).join('')}
-      ${simplified
-        // ── MODO SIMPLIFICADO — checkbox único ──
-        ? `<td class="text-center"><input type="checkbox" class="clinica-cb"
-              style="width:22px;height:22px;accent-color:var(--warn)"
-              ${isCase?'checked':''}
-              onchange="toggleClinica('${esc(p)}',this.checked)"/></td>`
-        : appData.symptoms.map(s=>`
-          <td class="text-center"><input type="checkbox" class="clinica-cb"
-              style="accent-color:var(--warn)"
-              ${(o.symptoms||[]).includes(s)?'checked':''}
-              onchange="updateOutcomeCheck('${esc(p)}','symptoms','${esc(s)}',this.checked)"/></td>`).join('')
-      }
-      <td><input type="text" class="inp" style="width:150px;${isCase?'':'opacity:.45;pointer-events:none'}"
-          placeholder="${isCase?'Notas...':'—'}" value="${o.notes||''}"
-          onchange="updateOutcome('${esc(p)}','notes',this.value)"/></td>
-    </tr>`;
+  appData.persons.forEach(function(p) {
+    var o = appData.outcomes[p] || {};
+    var isCase = s ? (o.symptoms||[]).indexOf(SIMP_SYM) >= 0 : (o.symptoms||[]).length > 0;
+    var sympOpts = appData.symptoms.map(function(sym){
+      return '<option' + (o.firstSymptom === sym ? ' selected' : '') + '>' + sym + '</option>';
+    }).join('');
+    html += '<tr>' +
+      '<td style="position:sticky;left:0;z-index:10;font-weight:600;background:var(--surface)">' + p + '</td>' +
+      '<td><input type="number" step="0.5" min="0" class="inp" style="width:76px" value="' + (o.incubation||'') + '" onchange="updateOut(\'' + esc(p) + '\',\'incubation\',this.value)"/></td>' +
+      (!s ? '<td><select class="inp" style="width:120px" onchange="updateOut(\'' + esc(p) + '\',\'firstSymptom\',this.value)"><option value="">—</option>' + sympOpts + '</select></td>' : '') +
+      '<td><input type="number" step="0.5" min="0" class="inp" style="width:76px" value="' + (o.duration||'') + '" onchange="updateOut(\'' + esc(p) + '\',\'duration\',this.value)"/></td>' +
+      appData.foods.map(function(f){
+        return '<td style="text-align:center"><input type="checkbox" class="cb-food"' + ((o.foods||[]).indexOf(f)>=0?' checked':'') + ' onchange="updateOutCheck(\'' + esc(p) + '\',\'foods\',\'' + esc(f) + '\',this.checked)"/></td>';
+      }).join('') +
+      (s
+        ? '<td style="text-align:center"><input type="checkbox" class="cb-clin"' + (isCase?' checked':'') + ' onchange="toggleClin(\'' + esc(p) + '\',this.checked)"/></td>'
+        : appData.symptoms.map(function(sym){
+            return '<td style="text-align:center"><input type="checkbox" class="cb-sym"' + ((o.symptoms||[]).indexOf(sym)>=0?' checked':'') + ' onchange="updateOutCheck(\'' + esc(p) + '\',\'symptoms\',\'' + esc(sym) + '\',this.checked)"/></td>';
+          }).join('')
+      ) +
+      '<td><input type="text" class="inp" style="width:148px;' + (isCase?'':'opacity:.4;pointer-events:none') + '" placeholder="' + (isCase?'Notas...':'—') + '" value="' + (o.notes||'') + '" onchange="updateOut(\'' + esc(p) + '\',\'notes\',this.value)"/></td>' +
+      '</tr>';
   });
-  html+='</tbody></table>';
-  c.innerHTML=html;
+  html += '</tbody></table>';
+  cont.innerHTML = html;
 
-  const filled=appData.persons.filter(p=>{
-    const o=appData.outcomes[p]||{};
-    return o.incubation||(o.symptoms||[]).length;
-  }).length;
-  document.getElementById('outcomes-filled').textContent=filled;
-  document.getElementById('outcomes-total').textContent=appData.persons.length;
+  var filled = appData.persons.filter(function(p){ var o=appData.outcomes[p]||{}; return o.incubation||(o.symptoms||[]).length; }).length;
+  document.getElementById('out-filled').textContent = filled;
+  document.getElementById('out-total').textContent  = appData.persons.length;
 }
 
-// ── MODO SIMPLIFICADO — toggle checkbox clínica ──
-function toggleClinica(person, checked) {
-  if(!appData.outcomes[person]) appData.outcomes[person]={incubation:'',firstSymptom:'',duration:'',foods:[],symptoms:[],notes:''};
-  if(checked) {
-    if(!(appData.outcomes[person].symptoms||[]).includes(SIMPLIFIED_SYMPTOM))
-      appData.outcomes[person].symptoms=[SIMPLIFIED_SYMPTOM];
+function toggleClin(person, checked) {
+  if (!appData.outcomes[person]) appData.outcomes[person] = {incubation:'',firstSymptom:'',duration:'',foods:[],symptoms:[],notes:''};
+  appData.outcomes[person].symptoms = checked ? [SIMP_SYM] : [];
+  markDirty(); saveData(); renderOutcomesTable();
+}
+function updateOut(p, f, v) {
+  if (!appData.outcomes[p]) appData.outcomes[p] = {incubation:'',firstSymptom:'',duration:'',foods:[],symptoms:[],notes:''};
+  appData.outcomes[p][f] = v; markDirty(); saveData();
+}
+function updateOutCheck(p, field, item, checked) {
+  if (!appData.outcomes[p]) appData.outcomes[p] = {incubation:'',firstSymptom:'',duration:'',foods:[],symptoms:[],notes:''};
+  var arr = appData.outcomes[p][field] || [];
+  if (checked && arr.indexOf(item) < 0) arr.push(item);
+  else if (!checked) { var idx = arr.indexOf(item); if (idx >= 0) arr.splice(idx,1); }
+  appData.outcomes[p][field] = arr; markDirty(); saveData(); renderOutcomesTable();
+}
+
+/* ════════════════════════════════════════════════════════════
+   BULK FILL
+════════════════════════════════════════════════════════════ */
+function openBulk() {
+  openModal('m-bulk');
+  document.getElementById('bulk-persons').innerHTML = appData.persons.map(function(p){
+    return '<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:4px;cursor:pointer;color:var(--text)">' +
+      '<input type="checkbox" class="bulk-pcb" value="' + p + '" checked style="accent-color:var(--accent)"/> ' + p +
+      '</label>';
+  }).join('');
+  document.getElementById('bulk-foods').innerHTML = appData.foods.map(function(f){
+    return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:var(--text2)">' +
+      '<input type="checkbox" class="bulk-fcb" value="' + f + '" style="accent-color:var(--accent2)"/> ' + f +
+      '</label>';
+  }).join('');
+  if (isSimp()) {
+    document.getElementById('bulk-full-block').style.display = 'none';
+    document.getElementById('bulk-simp-block').style.display = '';
   } else {
-    appData.outcomes[person].symptoms=[];
-  }
-  saveData(); renderOutcomesTable();
-}
-
-function updateOutcome(p,f,v) {
-  if(!appData.outcomes[p]) appData.outcomes[p]={incubation:'',firstSymptom:'',duration:'',foods:[],symptoms:[],notes:''};
-  appData.outcomes[p][f]=v; saveData();
-}
-function updateOutcomeCheck(p,field,item,checked) {
-  if(!appData.outcomes[p]) appData.outcomes[p]={incubation:'',firstSymptom:'',duration:'',foods:[],symptoms:[],notes:''};
-  const arr=appData.outcomes[p][field]||[];
-  if(checked&&!arr.includes(item)) arr.push(item);
-  else if(!checked){ const i=arr.indexOf(item); if(i>-1) arr.splice(i,1); }
-  appData.outcomes[p][field]=arr; saveData(); renderOutcomesTable();
-}
-
-// ════════════════════════════════════════════════════════════
-// BULK FILL — respeta el modo
-// ════════════════════════════════════════════════════════════
-function openBulkFill() {
-  const m=document.getElementById('bulk-modal');
-  m.classList.remove('hidden'); m.classList.add('flex');
-  document.getElementById('bulk-person-checkboxes').innerHTML=appData.persons.map(p=>
-    `<label class="flex items-center gap-2 text-sm" style="color:var(--text)">
-       <input type="checkbox" class="bulk-person-cb" value="${p}" checked style="accent-color:var(--accent)"/> ${p}
-     </label>`).join('');
-  document.getElementById('bulk-food-checks').innerHTML=appData.foods.map(f=>
-    `<label class="flex items-center gap-1 text-xs" style="color:var(--text2)">
-       <input type="checkbox" class="bulk-food-cb" value="${f}" style="accent-color:var(--accent2)"/> ${f}
-     </label>`).join('');
-
-  // ── MODO SIMPLIFICADO — alternar campos del bulk ──
-  if(isSimplified()){
-    document.getElementById('bulk-full-fields').classList.add('hidden');
-    document.getElementById('bulk-simplified-fields').classList.remove('hidden');
-  } else {
-    document.getElementById('bulk-full-fields').classList.remove('hidden');
-    document.getElementById('bulk-simplified-fields').classList.add('hidden');
-    const sel=document.getElementById('bulk-first-symptom');
-    sel.innerHTML=`<option value="">—</option>`+appData.symptoms.map(s=>`<option>${s}</option>`).join('');
-    document.getElementById('bulk-symptom-checks').innerHTML=appData.symptoms.map(s=>
-      `<label class="flex items-center gap-1 text-xs" style="color:var(--text2)">
-         <input type="checkbox" class="bulk-sym-cb" value="${s}" style="accent-color:var(--warn)"/> ${s}
-       </label>`).join('');
+    document.getElementById('bulk-full-block').style.display = '';
+    document.getElementById('bulk-simp-block').style.display = 'none';
+    document.getElementById('bulk-fs').innerHTML = '<option value="">—</option>' + appData.symptoms.map(function(s){return '<option>'+s+'</option>';}).join('');
+    document.getElementById('bulk-syms').innerHTML = appData.symptoms.map(function(s){
+      return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:var(--text2)">' +
+        '<input type="checkbox" class="bulk-scb" value="' + s + '" style="accent-color:var(--warn)"/> ' + s +
+        '</label>';
+    }).join('');
   }
 }
-function closeBulk(){
-  const m=document.getElementById('bulk-modal');
-  m.classList.add('hidden'); m.classList.remove('flex');
-}
-function applyBulkFill(){
-  const persons=[...document.querySelectorAll('.bulk-person-cb:checked')].map(e=>e.value);
-  const incubation=document.getElementById('bulk-incubation').value;
-  const duration=document.getElementById('bulk-duration').value;
-  const foods=[...document.querySelectorAll('.bulk-food-cb:checked')].map(e=>e.value);
-
-  persons.forEach(p=>{
-    if(!appData.outcomes[p]) appData.outcomes[p]={incubation:'',firstSymptom:'',duration:'',foods:[],symptoms:[],notes:''};
-    if(incubation) appData.outcomes[p].incubation=incubation;
-    if(duration)   appData.outcomes[p].duration=duration;
-    if(foods.length) appData.outcomes[p].foods=[...new Set([...(appData.outcomes[p].foods||[]),...foods])];
-
-    if(isSimplified()){
-      // ── MODO SIMPLIFICADO — aplica checkbox clínica ──
-      const clinica=document.getElementById('bulk-clinica-cb').checked;
-      appData.outcomes[p].symptoms = clinica ? [SIMPLIFIED_SYMPTOM] : [];
+function applyBulk() {
+  var persons = Array.from(document.querySelectorAll('.bulk-pcb:checked')).map(function(e){ return e.value; });
+  var inc  = document.getElementById('bulk-inc').value;
+  var dur  = document.getElementById('bulk-dur').value;
+  var foods = Array.from(document.querySelectorAll('.bulk-fcb:checked')).map(function(e){ return e.value; });
+  persons.forEach(function(p) {
+    if (!appData.outcomes[p]) appData.outcomes[p] = {incubation:'',firstSymptom:'',duration:'',foods:[],symptoms:[],notes:''};
+    if (inc)   appData.outcomes[p].incubation = inc;
+    if (dur)   appData.outcomes[p].duration   = dur;
+    if (foods.length) {
+      var merged = (appData.outcomes[p].foods||[]).concat(foods);
+      appData.outcomes[p].foods = merged.filter(function(v,i){ return merged.indexOf(v)===i; });
+    }
+    if (isSimp()) {
+      appData.outcomes[p].symptoms = document.getElementById('bulk-clin').checked ? [SIMP_SYM] : [];
     } else {
-      const firstSymptom=document.getElementById('bulk-first-symptom').value;
-      const symptoms=[...document.querySelectorAll('.bulk-sym-cb:checked')].map(e=>e.value);
-      if(firstSymptom) appData.outcomes[p].firstSymptom=firstSymptom;
-      if(symptoms.length) appData.outcomes[p].symptoms=[...new Set([...(appData.outcomes[p].symptoms||[]),...symptoms])];
-    }
-  });
-  saveData(); closeBulk(); renderOutcomesTable();
-  showToast(`Aplicado a ${persons.length} personas`);
-}
-
-// ════════════════════════════════════════════════════════════
-// STATISTICS
-// ════════════════════════════════════════════════════════════
-function calcOR_RR(a,b,c,d){
-  const aa=a+.5,bb=b+.5,cc=c+.5,dd=d+.5;
-  const OR=(aa*dd)/(bb*cc);
-  const lnOR=Math.log(OR),seOR=Math.sqrt(1/aa+1/bb+1/cc+1/dd);
-  const orLow=Math.exp(lnOR-1.96*seOR),orHigh=Math.exp(lnOR+1.96*seOR);
-  const n1=a+b,n0=c+d;
-  const p1=n1>0?a/n1:0,p0=n0>0?c/n0:0;
-  const RR=p0>0?p1/p0:(p1>0?999:1);
-  const lnRR=(RR>0&&isFinite(RR))?Math.log(RR):0;
-  const seRR=(n1>0&&n0>0)?Math.sqrt((1-p1)/(a+.5)+(1-p0)/(c+.5)):0;
-  const rrLow=Math.exp(lnRR-1.96*seRR),rrHigh=Math.exp(lnRR+1.96*seRR);
-  const n=a+b+c+d;
-  const chi2=n>0?(n*Math.pow(Math.abs(a*d-b*c)-n/2,2))/((a+b)*(c+d)*(a+c)*(b+d)):0;
-  const pval=chi2>0?chiSqP(chi2,1):1;
-  return {OR,orLow,orHigh,RR,rrLow,rrHigh,chi2,pval,a,b,c,d};
-}
-function chiSqP(x,df){return 1-regGP(df/2,x/2);}
-function regGP(a,x){
-  if(x<=0) return 0;
-  if(x>=a+1) return 1-regGQ(a,x);
-  let s=1/a,t=1/a,n=1;
-  while(Math.abs(t)>1e-8&&n<200){t*=x/(a+n);s+=t;n++;}
-  return s*Math.exp(-x+a*Math.log(x)-lgamma(a));
-}
-function regGQ(a,x){
-  let b=x+1-a,c2=1/1e-30,d2=1/b,h=d2;
-  for(let i=1;i<=200;i++){const an=-i*(i-a);b+=2;d2=an*d2+b;if(Math.abs(d2)<1e-30)d2=1e-30;c2=b+an/c2;if(Math.abs(c2)<1e-30)c2=1e-30;d2=1/d2;const dl=d2*c2;h*=dl;if(Math.abs(dl-1)<1e-8)break;}
-  return Math.exp(-x+a*Math.log(x)-lgamma(a))*h;
-}
-function lgamma(x){const c=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,1.208650973866179e-3,-5.395239384953e-6];let y=x,t=x+5.5;t-=(x+.5)*Math.log(t);let s=1.000000000190015;for(let j=0;j<6;j++)s+=c[j]/++y;return-t+Math.log(2.5066282746310005*s/x);}
-
-// ════════════════════════════════════════════════════════════
-// ── MODO SIMPLIFICADO — MOST IMPLICATED FOOD ──
-// Modo avanzado: puntúa por PRIMARY_SYMPTOMS + combinaciones
-// Modo simplificado: solo OR global (caso=clínica de toxinfección)
-// ════════════════════════════════════════════════════════════
-function getMostImplicatedFood(cases, nonCases) {
-  if(!appData.foods.length||!cases.length) return {food:'—',OR:null,combined:0};
-
-  if(isSimplified()){
-    // ── MODO SIMPLIFICADO — lógica simplificada: OR global ──
-    const scores=appData.foods.map(food=>{
-      const a=cases.filter(p=>(appData.outcomes[p]?.foods||[]).includes(food)).length;
-      const b=nonCases.filter(p=>(appData.outcomes[p]?.foods||[]).includes(food)).length;
-      const c=cases.filter(p=>!(appData.outcomes[p]?.foods||[]).includes(food)).length;
-      const d=nonCases.filter(p=>!(appData.outcomes[p]?.foods||[]).includes(food)).length;
-      const s=calcOR_RR(a,b,c,d);
-      return {food, OR:s.OR, pval:s.pval, combined:0, score:Math.log(Math.max(s.OR,0.001))+(s.pval<0.05?5:0)};
-    }).sort((a,b)=>b.score-a.score);
-    return scores[0];
-  }
-
-  // Modo avanzado: puntuación por síntomas elementales + combinaciones
-  const scores=appData.foods.map(food=>{
-    const aAll=cases.filter(p=>(appData.outcomes[p]?.foods||[]).includes(food)).length;
-    const bAll=nonCases.filter(p=>(appData.outcomes[p]?.foods||[]).includes(food)).length;
-    const cAll=cases.filter(p=>!(appData.outcomes[p]?.foods||[]).includes(food)).length;
-    const dAll=nonCases.filter(p=>!(appData.outcomes[p]?.foods||[]).includes(food)).length;
-    const gs=calcOR_RR(aAll,bAll,cAll,dAll);
-    let primaryScore=0, primaryCombinedCount=0;
-    PRIMARY_SYMPTOMS.forEach(sym=>{
-      const ms=appData.symptoms.find(s=>s.toLowerCase().includes(sym)||sym.includes(s.toLowerCase()));
-      if(!ms) return;
-      const a=cases.filter(p=>(appData.outcomes[p]?.symptoms||[]).includes(ms)&&(appData.outcomes[p]?.foods||[]).includes(food)).length;
-      const b=cases.filter(p=>(appData.outcomes[p]?.symptoms||[]).includes(ms)&&!(appData.outcomes[p]?.foods||[]).includes(food)).length;
-      const c=cases.filter(p=>!(appData.outcomes[p]?.symptoms||[]).includes(ms)&&(appData.outcomes[p]?.foods||[]).includes(food)).length;
-      const d=cases.filter(p=>!(appData.outcomes[p]?.symptoms||[]).includes(ms)&&!(appData.outcomes[p]?.foods||[]).includes(food)).length;
-      const st=calcOR_RR(a,b,c,d);
-      primaryScore+=Math.log(Math.max(st.OR,0.01))*(st.pval<0.05?2:1);
-    });
-    cases.forEach(p=>{
-      if(!(appData.outcomes[p]?.foods||[]).includes(food)) return;
-      const cnt=PRIMARY_SYMPTOMS.filter(sym=>appData.symptoms.find(s=>s.toLowerCase().includes(sym)||sym.includes(s.toLowerCase()))&&
-        (appData.outcomes[p]?.symptoms||[]).some(s=>s.toLowerCase().includes(sym)||sym.includes(s.toLowerCase()))).length;
-      if(cnt>=2) primaryCombinedCount++;
-    });
-    const finalScore=primaryScore*10+primaryCombinedCount*15+Math.log(Math.max(gs.OR,0.01))*3;
-    return {food,score:finalScore,OR:gs.OR,pval:gs.pval,combined:primaryCombinedCount};
-  }).sort((a,b)=>b.score-a.score);
-  return scores[0];
-}
-
-// ════════════════════════════════════════════════════════════
-// PATHOGEN SCORING
-// ════════════════════════════════════════════════════════════
-function scorePathogens(meanInc,medInc,symptomStats,foodStats){
-  const refInc=medInc||meanInc;
-  const topSymptoms=symptomStats.filter(s=>s.count>0).map(s=>s.sym.toLowerCase());
-  const topFoods=foodStats.filter(f=>f.OR>1).map(f=>f.food.toLowerCase());
-  return PATHOGENS.map(path=>{
-    let score=0;
-    if(refInc!==null){
-      if(refInc>=path.incMin&&refInc<=path.incMax) score+=40;
-      else{ const dist=Math.min(Math.abs(refInc-path.incMin),Math.abs(refInc-path.incMax)); score+=Math.max(0,30-dist*2); }
-    }
-    topSymptoms.forEach(sym=>{ if(path.symptoms.some(ps=>ps.toLowerCase().includes(sym)||sym.includes(ps.toLowerCase()))) score+=10; });
-    score=Math.min(score,80);
-    topFoods.forEach(food=>{ if(path.vehicles.some(v=>v.toLowerCase().includes(food)||food.includes(v.toLowerCase()))) score+=10; });
-    return {...path, score:Math.min(score,100)};
-  }).sort((a,b)=>b.score-a.score);
-}
-
-// ════════════════════════════════════════════════════════════
-// EPIDEMIC CURVE
-// ════════════════════════════════════════════════════════════
-function buildEpiCurveData(cases){
-  const inc=cases.map(p=>parseFloat(appData.outcomes[p]?.incubation)).filter(x=>!isNaN(x)&&x>0);
-  if(!inc.length) return null;
-  const mn=Math.floor(Math.min(...inc)),mx=Math.ceil(Math.max(...inc));
-  const range=mx-mn;
-  const bs=range<=12?1:range<=48?2:range<=96?4:range<=240?6:12;
-  const bins={};
-  for(let b=mn;b<=mx;b+=bs) bins[b]=0;
-  inc.forEach(v=>{ const k=Math.floor((v-mn)/bs)*bs+mn; bins[k]=(bins[k]||0)+1; });
-  return {labels:Object.keys(bins).map(k=>`${k}h`),data:Object.values(bins),mediana:median(inc)};
-}
-function classifyEpiCurve(incubations,medInc){
-  if(!incubations.length) return null;
-  const sorted=[...incubations].sort((a,b)=>a-b);
-  const p90=sorted[Math.floor(sorted.length*.9)],p10=sorted[Math.floor(sorted.length*.1)];
-  const compressed=(p90-p10)<(medInc||1)*2;
-  const range=Math.max(...incubations)-Math.min(...incubations);
-  if(compressed) return {type:'Fuente común puntual',desc:'Todos los afectados se expusieron en el mismo momento (típico de banquetes). Pico agudo y descenso gradual.',color:'#60a5fa'};
-  if(range>(medInc||1)*4) return {type:'Fuente común continua o propagada',desc:'Curva extendida: posible exposición continua o transmisión secundaria persona-persona.',color:'#fbbf24'};
-  return {type:'Patrón mixto',desc:'Distribución temporal compatible con fuente común y posible propagación secundaria.',color:'#a78bfa'};
-}
-
-// ════════════════════════════════════════════════════════════
-// MAIN ANALYSIS — respeta el modo
-// ════════════════════════════════════════════════════════════
-function runAnalysis(){
-  const cases=appData.persons.filter(p=>(appData.outcomes[p]?.symptoms||[]).length>0);
-  const nonCases=appData.persons.filter(p=>!(appData.outcomes[p]?.symptoms||[]).length);
-  const totalN=appData.persons.length;
-  const attackRate=totalN>0?(cases.length/totalN*100):0;
-  const incubations=cases.map(p=>parseFloat(appData.outcomes[p]?.incubation)).filter(x=>!isNaN(x)&&x>0).sort((a,b)=>a-b);
-  const medInc=median(incubations);
-  const meanInc=incubations.length?incubations.reduce((a,b)=>a+b,0)/incubations.length:null;
-
-  const foodStats=appData.foods.map(food=>{
-    const a=cases.filter(p=>(appData.outcomes[p]?.foods||[]).includes(food)).length;
-    const b=nonCases.filter(p=>(appData.outcomes[p]?.foods||[]).includes(food)).length;
-    const c=cases.filter(p=>!(appData.outcomes[p]?.foods||[]).includes(food)).length;
-    const d=nonCases.filter(p=>!(appData.outcomes[p]?.foods||[]).includes(food)).length;
-    const exposed=a+b; const ta=exposed>0?a/exposed*100:0;
-    return {food,...calcOR_RR(a,b,c,d),exposed,attackAmongExposed:ta};
-  }).sort((a,b)=>b.OR-a.OR);
-
-  const symptomStats=appData.symptoms.map(sym=>{
-    const count=cases.filter(p=>(appData.outcomes[p]?.symptoms||[]).includes(sym)).length;
-    return {sym,count,pct:cases.length>0?count/cases.length*100:0};
-  }).sort((a,b)=>b.count-a.count);
-
-  const mostImplicatedObj=getMostImplicatedFood(cases,nonCases);
-  const pathogenScores=scorePathogens(meanInc,medInc,symptomStats,foodStats);
-  const epiCurveData=buildEpiCurveData(cases);
-  const epiClassification=epiCurveData?classifyEpiCurve(incubations,medInc):null;
-
-  // ── MODO SIMPLIFICADO — en simplificado no hay symFoodMatrix significativa ──
-  const symFoodMatrix=isSimplified() ? [] : appData.symptoms.map(sym=>{
-    const best=appData.foods.map(food=>{
-      const a=cases.filter(p=>(appData.outcomes[p]?.symptoms||[]).includes(sym)&&(appData.outcomes[p]?.foods||[]).includes(food)).length;
-      const b=cases.filter(p=>(appData.outcomes[p]?.symptoms||[]).includes(sym)&&!(appData.outcomes[p]?.foods||[]).includes(food)).length;
-      const c=cases.filter(p=>!(appData.outcomes[p]?.symptoms||[]).includes(sym)&&(appData.outcomes[p]?.foods||[]).includes(food)).length;
-      const d=cases.filter(p=>!(appData.outcomes[p]?.symptoms||[]).includes(sym)&&!(appData.outcomes[p]?.foods||[]).includes(food)).length;
-      return {food,...calcOR_RR(a,b,c,d)};
-    }).sort((a,b)=>b.OR-a.OR)[0];
-    return {sym,bestFood:best};
-  });
-
-  renderAnalysis({totalN,cases,nonCases,attackRate,incubations,medInc,meanInc,
-    foodStats,symptomStats,mostImplicatedObj,symFoodMatrix,pathogenScores,epiCurveData,epiClassification});
-}
-
-// ════════════════════════════════════════════════════════════
-// RENDER ANALYSIS — gráfico donut oculto en modo simplificado
-// ════════════════════════════════════════════════════════════
-function renderAnalysis(d){
-  const {totalN,cases,nonCases,attackRate,incubations,medInc,meanInc,
-         foodStats,symptomStats,mostImplicatedObj,symFoodMatrix,
-         pathogenScores,epiCurveData,epiClassification}=d;
-
-  Object.values(chartInstances).forEach(c=>{try{c.destroy();}catch(e){}});
-  chartInstances={};
-
-  const simplified=isSimplified(); // ── MODO SIMPLIFICADO ──
-
-  // ── MODO SIMPLIFICADO — donut solo en modo avanzado ──
-  const donutSection = !simplified ? `
-    <div class="card p-4">
-      <div class="section-header">Distribución de Síntomas en Casos</div>
-      <div style="position:relative;height:260px;max-width:400px;margin:0 auto">
-        <canvas id="chart-donut"></canvas>
-      </div>
-    </div>` : '';
-
-  document.getElementById('analysis-output').innerHTML=`
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4" id="metrics-grid"></div>
-    <div class="grid grid-cols-1 ${!simplified?'lg:grid-cols-2':''} gap-4">
-      <div class="card p-4">
-        <div class="section-header">Curva Epidémica — Distribución Temporal de Casos</div>
-        <div id="epi-type-badge" class="mb-3"></div>
-        <div style="position:relative;height:220px"><canvas id="chart-epi"></canvas></div>
-        <div id="epi-interp" class="mt-3 text-xs" style="color:var(--text2)"></div>
-      </div>
-      ${donutSection}
-    </div>
-    <div class="card p-4">
-      <div class="section-header">Forest Plot — Odds Ratio por Alimento (IC 95%, escala log)</div>
-      <div id="forest-plot" class="overflow-x-auto"></div>
-    </div>
-    <div class="card p-4 overflow-x-auto scrollbar-thin">
-      <div class="section-header">Tasas de Ataque por Alimento</div>
-      <div id="attack-rate-table"></div>
-    </div>
-    <div class="card p-4 overflow-x-auto scrollbar-thin">
-      <div class="section-header">Estadística de Asociación Alimento–Caso (OR, RR, χ², p-valor)</div>
-      <div id="food-table"></div>
-    </div>
-    ${!simplified ? `
-    <div class="card p-4 overflow-x-auto scrollbar-thin">
-      <div class="section-header">Alimento más probable por síntoma</div>
-      <div id="sym-food-table"></div>
-    </div>` : ''}
-    <div class="card p-4">
-      <div class="section-header">Agente Causal más Probable</div>
-      <div id="pathogen-results"></div>
-    </div>`;
-
-  // ── Métricas ──
-  document.getElementById('metrics-grid').innerHTML=[
-    {icon:'👥', val:totalN,                                label:'Total personas',       sub:'expuestas'},
-    {icon:'⚠️', val:cases.length,                          label:'Casos confirmados',     sub:`Tasa de ataque: ${attackRate.toFixed(1)}%`},
-    {icon:'⏱',  val:medInc!==null?`${medInc}h`:'—',      label:'Mediana incubación',    sub:meanInc?`Media: ${meanInc.toFixed(1)}h`:''},
-    {icon:'🍽',  val:mostImplicatedObj.food,               label:'Alimento más implicado',sub:mostImplicatedObj.food!=='—'?`OR: ${fmt(mostImplicatedObj.OR)}${mostImplicatedObj.combined?` · ${mostImplicatedObj.combined} casos múlt.`:''}`:'-'},
-  ].map(m=>`<div class="metric-card">
-    <div class="text-2xl mb-1">${m.icon}</div>
-    <div class="font-display font-700" style="font-size:22px;color:var(--accent)">${m.val}</div>
-    <div class="text-xs font-600 mt-1" style="color:var(--text)">${m.label}</div>
-    ${m.sub?`<div class="text-xs mono mt-0.5" style="color:var(--muted)">${m.sub}</div>`:''}
-  </div>`).join('');
-
-  // ── Curva epidémica ──
-  const eBadge=document.getElementById('epi-type-badge');
-  if(epiCurveData&&epiClassification){
-    eBadge.innerHTML=`<span class="badge" style="background:${epiClassification.color}22;color:${epiClassification.color};font-size:12px">${epiClassification.type}</span>`;
-    document.getElementById('epi-interp').innerHTML=`<strong>Interpretación:</strong> ${epiClassification.desc}
-      ${medInc?`<br><span class="mono">Mediana: ${medInc}h · Rango: ${Math.min(...incubations).toFixed(1)}–${Math.max(...incubations).toFixed(1)}h</span>`:''}`;
-    chartInstances.epi=new Chart(document.getElementById('chart-epi').getContext('2d'),{
-      type:'bar',
-      data:{labels:epiCurveData.labels,datasets:[{label:'Nº casos',data:epiCurveData.data,backgroundColor:'rgba(96,165,250,0.65)',borderColor:'#60a5fa',borderWidth:1,borderRadius:3}]},
-      options:{responsive:true,maintainAspectRatio:false,
-        plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>`Inicio: ${c[0].label}`,label:c=>`${c.raw} caso${c.raw!==1?'s':''}`}}},
-        scales:{
-          x:{ticks:{color:'var(--text)',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'},title:{display:true,text:'Tiempo de inicio de síntomas (h)',color:'var(--muted)',font:{size:11}}},
-          y:{ticks:{color:'var(--muted)',font:{size:10},stepSize:1},grid:{color:'rgba(255,255,255,.05)'},title:{display:true,text:'Nº casos',color:'var(--muted)',font:{size:11}}}
-        }
+      var fs   = document.getElementById('bulk-fs').value;
+      var syms = Array.from(document.querySelectorAll('.bulk-scb:checked')).map(function(e){ return e.value; });
+      if (fs)   appData.outcomes[p].firstSymptom = fs;
+      if (syms.length) {
+        var m2 = (appData.outcomes[p].symptoms||[]).concat(syms);
+        appData.outcomes[p].symptoms = m2.filter(function(v,i){ return m2.indexOf(v)===i; });
       }
-    });
-  } else {
-    document.getElementById('chart-epi').style.display='none';
-    eBadge.innerHTML='';
-    document.getElementById('epi-interp').innerHTML='<span style="color:var(--muted)">Sin datos de incubación. Registra los periodos de incubación en Outcomes.</span>';
-  }
-
-  // ── MODO SIMPLIFICADO — donut solo en modo avanzado ──
-  if(!simplified){
-    const active=symptomStats.filter(s=>s.count>0);
-    if(active.length){
-      const palette=['#60a5fa','#38bdf8','#34d399','#fbbf24','#f87171','#a78bfa','#fb923c','#4ade80'];
-      chartInstances.donut=new Chart(document.getElementById('chart-donut').getContext('2d'),{
-        type:'doughnut',
-        data:{
-          labels:active.map(s=>`${s.sym} (${s.count})`),
-          datasets:[{data:active.map(s=>s.count),backgroundColor:active.map((_,i)=>palette[i%palette.length]),borderWidth:2,borderColor:'transparent'}]
-        },
-        options:{
-          responsive:true, maintainAspectRatio:false,
-          plugins:{legend:{position:'right',labels:{color:'var(--text)',font:{size:11},padding:10,boxWidth:14}},
-            tooltip:{callbacks:{label:c=>`${c.label}: ${c.raw} casos (${((c.raw/cases.length)*100).toFixed(1)}%)`}}}
-        }
-      });
     }
-  }
+  });
+  markDirty(); saveData(); closeModal('m-bulk'); renderOutcomesTable();
+  showToast('Aplicado a ' + persons.length + ' personas');
+}
 
-  // ── Forest plot ──
-  const fp=document.getElementById('forest-plot');
-  const validOR=foodStats.filter(f=>f.OR>0&&isFinite(f.OR));
-  if(validOR.length){
-    const allV=[...validOR.map(f=>f.orLow),...validOR.map(f=>f.orHigh),1].filter(v=>v>0&&isFinite(v));
-    const lMin=Math.log2(Math.min(...allV))-.5,lMax=Math.log2(Math.max(...allV))+.5,rng=lMax-lMin;
-    const pct=v=>Math.max(1,Math.min(99,(Math.log2(Math.max(v,.001))-lMin)/rng*100));
-    const nPct=pct(1);
-    fp.innerHTML=`<div style="position:relative;padding-left:130px;padding-right:20px;min-width:400px">
-      <div style="position:absolute;left:calc(130px + ${nPct}%);top:0;bottom:0;width:1px;background:var(--muted);opacity:.5"></div>
-      <div class="text-xs mono text-center mb-2" style="color:var(--muted);margin-left:${nPct-5}%">OR=1</div>
-      ${validOR.map(f=>{
-        const sig=f.pval<.05,col=sig?'#60a5fa':'var(--muted)';
-        const cP=pct(f.OR),lP=pct(f.orLow),hP=pct(f.orHigh);
-        return `<div style="position:relative;height:26px;display:flex;align-items:center;margin-bottom:4px">
-          <div style="position:absolute;right:calc(100% - 126px);white-space:nowrap;font-size:12px;color:${col};font-weight:${sig?700:400};text-align:right;font-family:'DM Mono',monospace">${f.food}</div>
-          <div style="position:absolute;left:${Math.min(lP,hP)}%;right:${100-Math.max(lP,hP)}%;height:2px;background:${col};opacity:.8;top:50%;transform:translateY(-50%)"></div>
-          <div style="position:absolute;left:calc(${cP}% - 6px);top:50%;transform:translateY(-50%);width:12px;height:12px;background:${col};border-radius:2px"></div>
-          <div style="position:absolute;left:calc(${Math.max(lP,hP)}% + 6px);font-size:10px;font-family:'DM Mono',monospace;color:var(--muted);white-space:nowrap">
-            ${fmt(f.OR)} [${fmt(f.orLow)}–${fmt(f.orHigh)}]${sig?' *':''}
-          </div>
-        </div>`;
-      }).join('')}
-      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;font-family:'DM Mono',monospace;color:var(--muted)"><span>← Protector</span><span>Riesgo →</span></div>
-    </div>`;
+/* ════════════════════════════════════════════════════════════
+   ESTADÍSTICA
+════════════════════════════════════════════════════════════ */
+function calcOR(a,b,c,d) {
+  var aa=a+.5, bb=b+.5, cc=c+.5, dd=d+.5;
+  var OR=(aa*dd)/(bb*cc);
+  var lnOR=Math.log(OR), seOR=Math.sqrt(1/aa+1/bb+1/cc+1/dd);
+  var orL=Math.exp(lnOR-1.96*seOR), orH=Math.exp(lnOR+1.96*seOR);
+  var n1=a+b, n0=c+d, p1=n1>0?a/n1:0, p0=n0>0?c/n0:0;
+  var RR=p0>0?p1/p0:(p1>0?999:1);
+  var lnRR=(RR>0&&isFinite(RR))?Math.log(RR):0;
+  var seRR=(n1>0&&n0>0)?Math.sqrt((1-p1)/(a+.5)+(1-p0)/(c+.5)):0;
+  var rrL=Math.exp(lnRR-1.96*seRR), rrH=Math.exp(lnRR+1.96*seRR);
+  var n=a+b+c+d;
+  var chi2=n>0?(n*Math.pow(Math.abs(a*d-b*c)-n/2,2))/((a+b)*(c+d)*(a+c)*(b+d)):0;
+  var pval=chi2>0?chiSqP(chi2):1;
+  return {OR:OR,orL:orL,orH:orH,RR:RR,rrL:rrL,rrH:rrH,chi2:chi2,pval:pval,a:a,b:b,c:c,d:d};
+}
+function chiSqP(x) { return 1-rgp(0.5, x/2); }
+function rgp(a,x) {
+  if (x<=0) return 0; if (x>=a+1) return 1-rgq(a,x);
+  var s=1/a, t=1/a, n=1;
+  while (Math.abs(t)>1e-8 && n<200) { t*=x/(a+n); s+=t; n++; }
+  return s*Math.exp(-x+a*Math.log(x)-lgam(a));
+}
+function rgq(a,x) {
+  var b=x+1-a,c=1/1e-30,d=1/b,h=d;
+  for (var i=1;i<=200;i++) { var an=-i*(i-a);b+=2;d=an*d+b;if(Math.abs(d)<1e-30)d=1e-30;c=b+an/c;if(Math.abs(c)<1e-30)c=1e-30;d=1/d;var dl=d*c;h*=dl;if(Math.abs(dl-1)<1e-8)break; }
+  return Math.exp(-x+a*Math.log(x)-lgam(a))*h;
+}
+function lgam(x) {
+  var cf=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,1.208650973866179e-3,-5.395239384953e-6];
+  var y=x,t=x+5.5; t-=(x+.5)*Math.log(t); var s=1.000000000190015;
+  for(var j=0;j<6;j++) s+=cf[j]/++y;
+  return -t+Math.log(2.5066282746310005*s/x);
+}
+
+/* ════════════════════════════════════════════════════════════
+   ALIMENTO MÁS IMPLICADO
+════════════════════════════════════════════════════════════ */
+function getMostImplicated(cases, nonCases) {
+  if (!appData.foods.length || !cases.length) return {food:'—', OR:null, combined:0};
+  var scores = appData.foods.map(function(food) {
+    var a=cases.filter(function(p){return (appData.outcomes[p]?.foods||[]).indexOf(food)>=0;}).length;
+    var b=nonCases.filter(function(p){return (appData.outcomes[p]?.foods||[]).indexOf(food)>=0;}).length;
+    var c=cases.filter(function(p){return (appData.outcomes[p]?.foods||[]).indexOf(food)<0;}).length;
+    var d=nonCases.filter(function(p){return (appData.outcomes[p]?.foods||[]).indexOf(food)<0;}).length;
+    var gs=calcOR(a,b,c,d);
+    if (isSimp()) {
+      return {food:food, OR:gs.OR, pval:gs.pval, combined:0, score:Math.log(Math.max(gs.OR,.001))+(gs.pval<.05?5:0)};
+    }
+    var pScore=0, combined=0;
+    PRIMARY_SYMS.forEach(function(sym) {
+      var ms=appData.symptoms.filter(function(s){ return s.toLowerCase().indexOf(sym)>=0||sym.indexOf(s.toLowerCase())>=0; })[0];
+      if (!ms) return;
+      var pa=cases.filter(function(p){return (appData.outcomes[p]?.symptoms||[]).indexOf(ms)>=0&&(appData.outcomes[p]?.foods||[]).indexOf(food)>=0;}).length;
+      var pb=cases.filter(function(p){return (appData.outcomes[p]?.symptoms||[]).indexOf(ms)>=0&&(appData.outcomes[p]?.foods||[]).indexOf(food)<0;}).length;
+      var pc=cases.filter(function(p){return (appData.outcomes[p]?.symptoms||[]).indexOf(ms)<0&&(appData.outcomes[p]?.foods||[]).indexOf(food)>=0;}).length;
+      var pd=cases.filter(function(p){return (appData.outcomes[p]?.symptoms||[]).indexOf(ms)<0&&(appData.outcomes[p]?.foods||[]).indexOf(food)<0;}).length;
+      var st=calcOR(pa,pb,pc,pd);
+      pScore+=Math.log(Math.max(st.OR,.01))*(st.pval<.05?2:1);
+    });
+    cases.forEach(function(p){
+      if ((appData.outcomes[p]?.foods||[]).indexOf(food)<0) return;
+      var cnt=PRIMARY_SYMS.filter(function(sym){
+        return appData.symptoms.some(function(s){return s.toLowerCase().indexOf(sym)>=0||sym.indexOf(s.toLowerCase())>=0;}) &&
+               (appData.outcomes[p]?.symptoms||[]).some(function(s){return s.toLowerCase().indexOf(sym)>=0||sym.indexOf(s.toLowerCase())>=0;});
+      }).length;
+      if (cnt>=2) combined++;
+    });
+    return {food:food, OR:gs.OR, pval:gs.pval, combined:combined, score:pScore*10+combined*15+Math.log(Math.max(gs.OR,.01))*3};
+  });
+  return scores.sort(function(a,b){return b.score-a.score;})[0];
+}
+
+/* ════════════════════════════════════════════════════════════
+   PATHOGENS SCORING
+════════════════════════════════════════════════════════════ */
+function scorePathogens(meanInc, medInc, symptomStats, foodStats) {
+  var refInc = medInc || meanInc;
+  var topSym  = symptomStats.filter(function(s){return s.count>0;}).map(function(s){return s.sym.toLowerCase();});
+  var topFood = foodStats.filter(function(f){return f.OR>1;}).map(function(f){return f.food.toLowerCase();});
+  return PATHOGENS.map(function(path) {
+    var score = 0;
+    if (refInc !== null) {
+      if (refInc>=path.incMin && refInc<=path.incMax) score+=40;
+      else { var dist=Math.min(Math.abs(refInc-path.incMin),Math.abs(refInc-path.incMax)); score+=Math.max(0,30-dist*2); }
+    }
+    topSym.forEach(function(sym){ if(path.symptoms.some(function(ps){return ps.toLowerCase().indexOf(sym)>=0||sym.indexOf(ps.toLowerCase())>=0;})) score+=10; });
+    score = Math.min(score, 80);
+    topFood.forEach(function(food){ if(path.vehicles.some(function(v){return v.toLowerCase().indexOf(food)>=0||food.indexOf(v.toLowerCase())>=0;})) score+=10; });
+    return Object.assign({}, path, {score: Math.min(score, 100)});
+  }).sort(function(a,b){ return b.score-a.score; });
+}
+
+/* ════════════════════════════════════════════════════════════
+   CURVA EPIDÉMICA
+════════════════════════════════════════════════════════════ */
+function buildEpiData(cases) {
+  var inc = cases.map(function(p){ return parseFloat(appData.outcomes[p]?.incubation); }).filter(function(x){ return !isNaN(x)&&x>0; });
+  if (!inc.length) return null;
+  var mn=Math.floor(Math.min.apply(null,inc)), mx=Math.ceil(Math.max.apply(null,inc)), range=mx-mn;
+  var bs = range<=12?1:range<=48?2:range<=96?4:range<=240?6:12;
+  var bins = {};
+  for (var b=mn; b<=mx; b+=bs) bins[b]=0;
+  inc.forEach(function(v){ var k=Math.floor((v-mn)/bs)*bs+mn; bins[k]=(bins[k]||0)+1; });
+  return {labels:Object.keys(bins).map(function(k){return k+'h';}), data:Object.values(bins), mediana:median(inc)};
+}
+function classifyEpi(incubations, medInc) {
+  if (!incubations.length) return null;
+  var sorted=incubations.slice().sort(function(a,b){return a-b;});
+  var p90=sorted[Math.floor(sorted.length*.9)], p10=sorted[Math.floor(sorted.length*.1)];
+  var compressed=(p90-p10)<(medInc||1)*2;
+  var range=Math.max.apply(null,incubations)-Math.min.apply(null,incubations);
+  if (compressed) return {type:'Fuente común puntual', desc:'Todos los afectados se expusieron simultáneamente. Pico agudo y descenso gradual.', color:'#8cd4f5'};
+  if (range>(medInc||1)*4) return {type:'Fuente común continua o propagada', desc:'Curva extendida: posible exposición continua o transmisión secundaria.', color:'#fbbf24'};
+  return {type:'Patrón mixto', desc:'Compatible con fuente común y posible propagación secundaria.', color:'#a78bfa'};
+}
+
+/* ════════════════════════════════════════════════════════════
+   ANÁLISIS PRINCIPAL
+════════════════════════════════════════════════════════════ */
+function runAnalysis() {
+  var cases    = appData.persons.filter(function(p){ return (appData.outcomes[p]?.symptoms||[]).length>0; });
+  var nonCases = appData.persons.filter(function(p){ return !(appData.outcomes[p]?.symptoms||[]).length; });
+  var totalN   = appData.persons.length;
+  var attackRate = totalN>0 ? (cases.length/totalN*100) : 0;
+  var incubations = cases.map(function(p){ return parseFloat(appData.outcomes[p]?.incubation); }).filter(function(x){return !isNaN(x)&&x>0;}).sort(function(a,b){return a-b;});
+  var medInc  = median(incubations);
+  var meanInc = incubations.length ? incubations.reduce(function(a,b){return a+b;},0)/incubations.length : null;
+  var simp = isSimp();
+
+  var foodStats = appData.foods.map(function(food) {
+    var a=cases.filter(function(p){return (appData.outcomes[p]?.foods||[]).indexOf(food)>=0;}).length;
+    var b=nonCases.filter(function(p){return (appData.outcomes[p]?.foods||[]).indexOf(food)>=0;}).length;
+    var c=cases.filter(function(p){return (appData.outcomes[p]?.foods||[]).indexOf(food)<0;}).length;
+    var d=nonCases.filter(function(p){return (appData.outcomes[p]?.foods||[]).indexOf(food)<0;}).length;
+    var exposed=a+b; var ta=exposed>0?a/exposed*100:0;
+    var stats=calcOR(a,b,c,d);
+    return Object.assign({food:food,exposed:exposed,attackAmongExposed:ta},stats);
+  }).sort(function(a,b){return b.OR-a.OR;});
+
+  var symptomStats = appData.symptoms.map(function(sym) {
+    var count=cases.filter(function(p){return (appData.outcomes[p]?.symptoms||[]).indexOf(sym)>=0;}).length;
+    return {sym:sym, count:count, pct:cases.length>0?count/cases.length*100:0};
+  }).sort(function(a,b){return b.count-a.count;});
+
+  var mostImpl   = getMostImplicated(cases, nonCases);
+  var pathScores = scorePathogens(meanInc, medInc, symptomStats, foodStats);
+  var epiData    = buildEpiData(cases);
+  var epiClass   = epiData ? classifyEpi(incubations, medInc) : null;
+
+  var symFoodMatrix = simp ? [] : appData.symptoms.map(function(sym) {
+    var best = appData.foods.map(function(food) {
+      var a=cases.filter(function(p){return (appData.outcomes[p]?.symptoms||[]).indexOf(sym)>=0&&(appData.outcomes[p]?.foods||[]).indexOf(food)>=0;}).length;
+      var b=cases.filter(function(p){return (appData.outcomes[p]?.symptoms||[]).indexOf(sym)>=0&&(appData.outcomes[p]?.foods||[]).indexOf(food)<0;}).length;
+      var c=cases.filter(function(p){return (appData.outcomes[p]?.symptoms||[]).indexOf(sym)<0&&(appData.outcomes[p]?.foods||[]).indexOf(food)>=0;}).length;
+      var d=cases.filter(function(p){return (appData.outcomes[p]?.symptoms||[]).indexOf(sym)<0&&(appData.outcomes[p]?.foods||[]).indexOf(food)<0;}).length;
+      return Object.assign({food:food},calcOR(a,b,c,d));
+    }).sort(function(a,b){return b.OR-a.OR;})[0];
+    return {sym:sym, best:best};
+  });
+
+  renderAnalysis(totalN,cases,nonCases,attackRate,incubations,medInc,meanInc,foodStats,symptomStats,mostImpl,symFoodMatrix,pathScores,epiData,epiClass,simp);
+}
+
+/* ════════════════════════════════════════════════════════════
+   RENDER ANÁLISIS
+════════════════════════════════════════════════════════════ */
+function renderAnalysis(totalN,cases,nonCases,attackRate,incubations,medInc,meanInc,foodStats,symptomStats,mostImpl,symFoodMatrix,pathScores,epiData,epiClass,simp) {
+  Object.values(charts).forEach(function(c){ try{ c.destroy(); }catch(e){} }); charts={};
+
+  var out = document.getElementById('analysis-out');
+  out.innerHTML = '';
+
+  // Métricas
+  var metG = document.createElement('div');
+  metG.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:16px';
+  var metrics = [
+    {icon:'👥', val:totalN,      label:'Total personas',        sub:'expuestas'},
+    {icon:'⚠️', val:cases.length, label:'Casos confirmados',     sub:'Tasa de ataque: '+attackRate.toFixed(1)+'%'},
+    {icon:'⏱',  val:medInc!==null?medInc+'h':'—', label:'Mediana incubación', sub:meanInc?'Media: '+meanInc.toFixed(1)+'h':''},
+    {icon:'🍽',  val:mostImpl.food, label:'Alimento más implicado', sub:mostImpl.food!=='—'&&mostImpl.OR?'OR: '+fmt(mostImpl.OR)+(mostImpl.combined?' · '+mostImpl.combined+' comb.':''):'-'}
+  ];
+  metG.innerHTML = metrics.map(function(m){
+    return '<div class="metric-card">' +
+      '<div style="font-size:22px;margin-bottom:4px">'+m.icon+'</div>' +
+      '<div style="font-family:Syne,sans-serif;font-weight:700;font-size:20px;color:var(--accent)">'+m.val+'</div>' +
+      '<div style="font-size:11px;font-weight:600;margin-top:4px;color:var(--text)">'+m.label+'</div>' +
+      (m.sub?'<div class="mono" style="font-size:10px;margin-top:2px;color:var(--muted)">'+m.sub+'</div>':'') +
+      '</div>';
+  }).join('');
+  out.appendChild(metG);
+
+  // Charts row
+  var chartsRow = document.createElement('div');
+  chartsRow.style.cssText = 'display:grid;grid-template-columns:' + (simp?'1fr':'1fr 1fr') + ';gap:16px';
+
+  // Curva epidémica
+  var epiCard = document.createElement('div');
+  epiCard.className = 'card';
+  epiCard.style.padding = '16px';
+  var epiInnerHTML = '<div class="sec-hdr">Curva Epidémica</div>';
+  if (epiData && epiClass) {
+    epiInnerHTML += '<span class="badge" style="background:'+epiClass.color+'22;color:'+epiClass.color+';font-size:12px;margin-bottom:10px;display:inline-block">'+epiClass.type+'</span>';
+    epiInnerHTML += '<div style="position:relative;height:200px"><canvas id="ch-epi"></canvas></div>';
+    epiInnerHTML += '<div style="font-size:11px;color:var(--text2);margin-top:8px"><strong>Interpretación:</strong> '+epiClass.desc;
+    if (medInc) epiInnerHTML += '<br><span class="mono">Mediana: '+medInc+'h · Rango: '+Math.min.apply(null,incubations).toFixed(1)+'–'+Math.max.apply(null,incubations).toFixed(1)+'h</span>';
+    epiInnerHTML += '</div>';
   } else {
-    fp.innerHTML='<p class="py-4 text-center" style="color:var(--muted)">Sin datos suficientes para el forest plot</p>';
+    epiInnerHTML += '<p style="color:var(--muted);font-size:13px;padding:20px 0">Sin datos de incubación. Registra los periodos en Outcomes.</p>';
+  }
+  epiCard.innerHTML = epiInnerHTML;
+  chartsRow.appendChild(epiCard);
+
+  // Donut (solo avanzado)
+  if (!simp) {
+    var donutCard = document.createElement('div');
+    donutCard.className = 'card';
+    donutCard.style.padding = '16px';
+    donutCard.innerHTML = '<div class="sec-hdr">Distribución de Síntomas en Casos</div><div style="position:relative;height:240px;max-width:360px;margin:0 auto"><canvas id="ch-donut"></canvas></div>';
+    chartsRow.appendChild(donutCard);
+  }
+  out.appendChild(chartsRow);
+
+  // Crear charts después de que el DOM exista
+  requestAnimationFrame(function() {
+    if (epiData && epiClass) {
+      var ctx = document.getElementById('ch-epi');
+      if (ctx) {
+        charts.epi = new Chart(ctx.getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: epiData.labels,
+            datasets: [{label:'Nº casos', data:epiData.data, backgroundColor:'rgba(140,212,245,.6)', borderColor:'#8cd4f5', borderWidth:1, borderRadius:3}]
+          },
+          options: {
+            responsive:true, maintainAspectRatio:false,
+            plugins:{legend:{display:false},tooltip:{callbacks:{title:function(c){return 'Inicio: '+c[0].label;},label:function(c){return c.raw+' caso'+(c.raw!==1?'s':'');}}}},
+            scales:{
+              x:{ticks:{color:'#91a6c4',font:{size:10}},grid:{color:'rgba(255,255,255,.04)'},title:{display:true,text:'Tiempo de inicio (h)',color:'#91a6c4',font:{size:11}}},
+              y:{ticks:{color:'#91a6c4',font:{size:10},stepSize:1},grid:{color:'rgba(255,255,255,.04)'},title:{display:true,text:'Nº casos',color:'#91a6c4',font:{size:11}}}
+            }
+          }
+        });
+      }
+    }
+    if (!simp) {
+      var active = symptomStats.filter(function(s){return s.count>0;});
+      var dctx = document.getElementById('ch-donut');
+      if (active.length && dctx) {
+        var pal = ['#8cd4f5','#7dd3fc','#10b981','#fbbf24','#f43f5e','#a78bfa','#fb923c','#4ade80'];
+        charts.donut = new Chart(dctx.getContext('2d'), {
+          type: 'doughnut',
+          data: {
+            labels: active.map(function(s){return s.sym+' ('+s.count+')';}),
+            datasets: [{data:active.map(function(s){return s.count;}), backgroundColor:active.map(function(_,i){return pal[i%pal.length];}), borderWidth:2, borderColor:'transparent'}]
+          },
+          options: {
+            responsive:true, maintainAspectRatio:false,
+            plugins:{
+              legend:{position:'right',labels:{color:'#f8fafc',font:{size:11},padding:10,boxWidth:14}},
+              tooltip:{callbacks:{label:function(c){return c.label+': '+c.raw+' ('+((c.raw/cases.length)*100).toFixed(1)+'%)';}}}
+            }
+          }
+        });
+      }
+    }
+  });
+
+  // Forest plot
+  var fpCard = document.createElement('div');
+  fpCard.className = 'card';
+  fpCard.style.padding = '16px';
+  var fpHTML = '<div class="sec-hdr">Forest Plot — OR por Alimento (IC 95%)</div>';
+  var validOR = foodStats.filter(function(f){return f.OR>0&&isFinite(f.OR);});
+  if (validOR.length) {
+    var allV = validOR.map(function(f){return f.orL;}).concat(validOR.map(function(f){return f.orH;})).concat([1]).filter(function(v){return v>0&&isFinite(v);});
+    var lMin=Math.log2(Math.min.apply(null,allV))-.5, lMax=Math.log2(Math.max.apply(null,allV))+.5, rng=lMax-lMin;
+    function pct(v){ return Math.max(1,Math.min(99,(Math.log2(Math.max(v,.001))-lMin)/rng*100)); }
+    var nP = pct(1);
+    fpHTML += '<div style="position:relative;padding-left:130px;padding-right:20px;min-width:400px;overflow-x:auto">';
+    fpHTML += '<div style="position:absolute;left:calc(130px + '+nP+'%);top:0;bottom:0;width:1px;background:var(--muted);opacity:.4"></div>';
+    fpHTML += '<div class="mono" style="font-size:10px;text-align:center;color:var(--muted);margin-bottom:8px;margin-left:'+(nP-5)+'%">OR=1</div>';
+    validOR.forEach(function(f) {
+      var sig=f.pval<.05, col=sig?'var(--accent)':'var(--muted)';
+      var cP=pct(f.OR), lP=pct(f.orL), hP=pct(f.orH);
+      fpHTML += '<div style="position:relative;height:26px;display:flex;align-items:center;margin-bottom:4px">' +
+        '<div style="position:absolute;right:calc(100% - 126px);white-space:nowrap;font-size:12px;color:'+col+';font-weight:'+(sig?700:400)+';text-align:right;font-family:DM Mono,monospace">'+f.food+'</div>' +
+        '<div style="position:absolute;left:'+Math.min(lP,hP)+'%;right:'+(100-Math.max(lP,hP))+'%;height:2px;background:'+col+';opacity:.75;top:50%;transform:translateY(-50%)"></div>' +
+        '<div style="position:absolute;left:calc('+cP+'% - 6px);top:50%;transform:translateY(-50%);width:12px;height:12px;background:'+col+';border-radius:2px"></div>' +
+        '<div style="position:absolute;left:calc('+Math.max(lP,hP)+'% + 6px);font-size:10px;font-family:DM Mono,monospace;color:var(--muted);white-space:nowrap">'+fmt(f.OR)+' ['+fmt(f.orL)+'–'+fmt(f.orH)+']'+(sig?' *':'')+'</div>' +
+        '</div>';
+    });
+    fpHTML += '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;font-family:DM Mono,monospace;color:var(--muted)"><span>← Protector</span><span>Riesgo →</span></div></div>';
+  } else {
+    fpHTML += '<p style="color:var(--muted);padding:16px 0">Sin datos suficientes.</p>';
+  }
+  fpCard.innerHTML = fpHTML;
+  out.appendChild(fpCard);
+
+  // Tabla tasas de ataque
+  var taCd = document.createElement('div'); taCd.className='card'; taCd.style.cssText='padding:16px;overflow-x:auto';
+  var taH = '<div class="sec-hdr">Tasas de Ataque por Alimento</div><table><thead><tr><th>Alimento</th><th>N exp.</th><th>Casos exp.</th><th>No casos exp.</th><th>TA exp.(%)</th><th>Casos no exp.</th><th>TA no exp.(%)</th></tr></thead><tbody>';
+  if (foodStats.length) {
+    foodStats.forEach(function(f) {
+      var tacNE=f.c+f.d>0?f.c/(f.c+f.d)*100:0, sig=f.pval<.05;
+      taH += '<tr><td style="font-weight:600;color:'+(sig?'var(--accent)':'var(--text)')+'">'+f.food+(sig?' <span class="badge b-blue">sig.</span>':'')+'</td>' +
+        '<td class="mono">'+f.exposed+'</td><td class="mono">'+f.a+'</td><td class="mono">'+f.b+'</td>' +
+        '<td class="mono" style="font-weight:600;color:'+(sig?'var(--accent)':'var(--text)')+'">'+fmt(f.attackAmongExposed,1)+'%</td>' +
+        '<td class="mono">'+f.c+'</td><td class="mono">'+fmt(tacNE,1)+'%</td></tr>';
+    });
+  }
+  taH += '</tbody></table>';
+  taCd.innerHTML = taH;
+  out.appendChild(taCd);
+
+  // Tabla OR/RR
+  var orCd = document.createElement('div'); orCd.className='card'; orCd.style.cssText='padding:16px;overflow-x:auto';
+  var orH = '<div class="sec-hdr">Estadística de Asociación Alimento–Caso (OR, RR, χ², p)</div><table><thead><tr><th>Alimento</th><th>a</th><th>b</th><th>c</th><th>d</th><th>OR (IC 95%)</th><th>RR (IC 95%)</th><th>χ²</th><th>p-valor</th></tr></thead><tbody>';
+  foodStats.forEach(function(f) {
+    var sig=f.pval<.05;
+    orH += '<tr><td style="font-weight:600;color:'+(sig?'var(--accent)':'var(--text)')+'">'+f.food+'</td>' +
+      '<td class="mono">'+f.a+'</td><td class="mono">'+f.b+'</td><td class="mono">'+f.c+'</td><td class="mono">'+f.d+'</td>' +
+      '<td class="mono'+(sig?' sig-color':'')+'">'+fmt(f.OR)+' ['+fmt(f.orL)+'–'+fmt(f.orH)+']</td>' +
+      '<td class="mono">'+fmt(f.RR)+' ['+fmt(f.rrL)+'–'+fmt(f.rrH)+']</td>' +
+      '<td class="mono">'+fmt(f.chi2)+'</td><td class="mono'+(sig?' sig-color':'')+'">'+pFmt(f.pval)+'</td></tr>';
+  });
+  orH += '</tbody></table>';
+  orCd.innerHTML = orH;
+  out.appendChild(orCd);
+
+  // Tabla síntoma×alimento (solo avanzado)
+  if (!simp && symFoodMatrix.length) {
+    var sfCd = document.createElement('div'); sfCd.className='card'; sfCd.style.cssText='padding:16px;overflow-x:auto';
+    var sfH = '<div class="sec-hdr">Alimento más probable por síntoma</div><table><thead><tr><th>Síntoma</th><th>Alimento más probable</th><th>OR</th><th>IC 95%</th><th>p-valor</th></tr></thead><tbody>';
+    symFoodMatrix.forEach(function(s) {
+      var b=s.best; if (!b) { sfH+='<tr><td>'+s.sym+'</td><td colspan="4" style="color:var(--muted)">Sin datos</td></tr>'; return; }
+      var sig=b.pval<.05;
+      sfH += '<tr><td style="font-weight:600">'+s.sym+'</td><td style="color:'+(sig?'var(--accent2)':'var(--text)')+'">'+b.food+'</td>' +
+        '<td class="mono'+(sig?' sig-color':'')+'">'+fmt(b.OR)+'</td><td class="mono">['+fmt(b.orL)+'–'+fmt(b.orH)+']</td>' +
+        '<td class="mono'+(sig?' sig-color':'')+'">'+pFmt(b.pval)+'</td></tr>';
+    });
+    sfH += '</tbody></table>';
+    sfCd.innerHTML = sfH;
+    out.appendChild(sfCd);
   }
 
-  // ── Tabla tasas de ataque ──
-  const art=document.getElementById('attack-rate-table');
-  if(foodStats.length){
-    art.innerHTML=`<table><thead><tr>
-      <th>Alimento</th><th>N expuestos</th><th>Casos exp.</th><th>No casos exp.</th>
-      <th>TA expuestos (%)</th><th>Casos no exp.</th><th>TA no exp. (%)</th>
-    </tr></thead><tbody>${foodStats.map(f=>{
-      const tacNE=f.c+f.d>0?f.c/(f.c+f.d)*100:0,sig=f.pval<.05;
-      return `<tr>
-        <td class="font-600" style="color:${sig?'var(--accent)':'var(--text)'}">${f.food}${sig?` <span class="badge badge-blue">sig.</span>`:''}</td>
-        <td class="mono">${f.exposed}</td><td class="mono">${f.a}</td><td class="mono">${f.b}</td>
-        <td class="mono font-600" style="color:${sig?'var(--accent)':'var(--text)'}">${fmt(f.attackAmongExposed,1)}%</td>
-        <td class="mono">${f.c}</td><td class="mono">${fmt(tacNE,1)}%</td>
-      </tr>`;
-    }).join('')}</tbody></table>`;
-  } else art.innerHTML='<p class="py-4 text-center" style="color:var(--muted)">Sin datos de alimentos</p>';
-
-  // ── Tabla OR/RR ──
-  document.getElementById('food-table').innerHTML=`<table><thead><tr>
-    <th>Alimento</th><th>a</th><th>b</th><th>c</th><th>d</th>
-    <th>OR (IC 95%)</th><th>RR (IC 95%)</th><th>χ²</th><th>p-valor</th>
-  </tr></thead><tbody>${foodStats.map(f=>{
-    const sig=f.pval<.05;
-    return `<tr>
-      <td class="font-600" style="color:${sig?'var(--accent)':'var(--text)'}">${f.food}</td>
-      <td class="mono">${f.a}</td><td class="mono">${f.b}</td><td class="mono">${f.c}</td><td class="mono">${f.d}</td>
-      <td class="mono ${sig?'sig':''}">${fmt(f.OR)} [${fmt(f.orLow)}–${fmt(f.orHigh)}]</td>
-      <td class="mono">${fmt(f.RR)} [${fmt(f.rrLow)}–${fmt(f.rrHigh)}]</td>
-      <td class="mono">${fmt(f.chi2)}</td>
-      <td class="mono ${sig?'sig':''}">${pFmt(f.pval)}</td>
-    </tr>`;
-  }).join('')}</tbody></table>`;
-
-  // ── MODO SIMPLIFICADO — tabla síntoma×alimento solo en avanzado ──
-  if(!simplified&&document.getElementById('sym-food-table')){
-    document.getElementById('sym-food-table').innerHTML=`<table><thead><tr>
-      <th>Síntoma</th><th>Alimento más probable</th><th>OR</th><th>IC 95%</th><th>p-valor</th>
-    </tr></thead><tbody>${symFoodMatrix.map(s=>{
-      const b=s.bestFood; if(!b) return `<tr><td>${s.sym}</td><td colspan="4" style="color:var(--muted)">Sin datos</td></tr>`;
-      const sig=b.pval<.05;
-      return `<tr>
-        <td class="font-600">${s.sym}</td>
-        <td style="color:${sig?'var(--accent2)':'var(--text)'}">${b.food}</td>
-        <td class="mono ${sig?'sig':''}">${fmt(b.OR)}</td>
-        <td class="mono">[${fmt(b.orLow)}–${fmt(b.orHigh)}]</td>
-        <td class="mono ${sig?'sig':''}">${pFmt(b.pval)}</td>
-      </tr>`;
-    }).join('')}</tbody></table>`;
-  }
-
-  // ── Agentes causales ──
-  const top3=pathogenScores.slice(0,3);
-  document.getElementById('pathogen-results').innerHTML=`
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-      ${top3.map((p,i)=>`<div class="card2 p-4" style="${i===0?'border-color:var(--accent)':''}">
-        <div class="badge ${i===0?'badge-blue':'badge-yellow'} mb-2">${i===0?'★ Más probable':'#'+(i+1)}</div>
-        <div class="font-display font-700 text-sm mb-1" style="color:var(--text)">${p.short}</div>
-        <div class="text-xs mono mb-2" style="color:var(--muted)">Score: ${p.score}/100</div>
-        <div class="rounded-full h-1.5 mb-3" style="background:var(--border)">
-          <div class="h-1.5 rounded-full" style="width:${p.score}%;background:${i===0?'var(--accent)':'var(--accent2)'}"></div>
-        </div>
-        <div class="text-xs mb-1" style="color:var(--text2)"><span style="color:var(--muted)">Incub.: </span>${p.incMin}–${p.incMax}h</div>
-        <div class="text-xs mb-1" style="color:var(--text2)"><span style="color:var(--muted)">Duración: </span>${p.duration}</div>
-        <div class="text-xs mb-2" style="color:var(--text2)"><span style="color:var(--muted)">Vehículos: </span>${p.vehicles.slice(0,3).join(', ')}</div>
-        <div class="text-xs italic" style="color:var(--muted)">${p.keyFeatures}</div>
-      </div>`).join('')}
-    </div>
-    <div class="card2 p-3 overflow-x-auto scrollbar-thin">
-      <table><thead><tr><th>Agente</th><th>Score</th><th>Incub.</th><th>Duración</th><th>Rasgos clave</th><th>Vehículos</th></tr></thead>
-      <tbody>${pathogenScores.slice(0,10).map((p,i)=>`<tr>
-        <td class="font-600 text-xs" style="color:${i<3?'var(--accent)':'var(--text)'}">${p.short}</td>
-        <td><div style="display:flex;align-items:center;gap:6px">
-          <div style="width:55px;height:5px;border-radius:3px;background:var(--border)">
-            <div style="width:${p.score}%;height:100%;border-radius:3px;background:${i===0?'var(--accent)':'var(--accent2)'}"></div>
-          </div>
-          <span class="mono" style="font-size:11px">${p.score}</span>
-        </div></td>
-        <td class="mono text-xs">${p.incMin}–${p.incMax}h</td>
-        <td class="text-xs">${p.duration}</td>
-        <td class="text-xs" style="max-width:180px">${p.keyFeatures}</td>
-        <td class="text-xs">${p.vehicles.slice(0,2).join(', ')}</td>
-      </tr>`).join('')}</tbody></table>
-    </div>`;
+  // Agentes causales
+  var patCd = document.createElement('div'); patCd.className='card'; patCd.style.padding='16px';
+  var top3 = pathScores.slice(0,3);
+  var patH = '<div class="sec-hdr">Agente Causal más Probable</div>';
+  patH += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px">';
+  top3.forEach(function(p,i) {
+    patH += '<div class="card2" style="padding:16px;'+(i===0?'border-color:var(--accent)':'')+'">' +
+      '<div class="badge '+(i===0?'b-blue':'b-yellow')+'" style="margin-bottom:8px">'+(i===0?'★ Más probable':'#'+(i+1))+'</div>' +
+      '<div style="font-family:Syne,sans-serif;font-weight:700;font-size:13px;color:var(--text);margin-bottom:4px">'+p.short+'</div>' +
+      '<div class="mono" style="font-size:10px;color:var(--muted);margin-bottom:6px">Score: '+p.score+'/100</div>' +
+      '<div style="background:var(--border);border-radius:99px;height:5px;margin-bottom:10px"><div style="width:'+p.score+'%;height:100%;border-radius:99px;background:'+(i===0?'var(--accent)':'var(--accent2)')+'"></div></div>' +
+      '<div style="font-size:11px;color:var(--text2);line-height:1.7"><span style="color:var(--muted)">Incub.: </span>'+p.incMin+'–'+p.incMax+'h<br><span style="color:var(--muted)">Dur.: </span>'+p.duration+'<br><span style="color:var(--muted)">Vehículos: </span>'+p.vehicles.slice(0,2).join(', ')+'</div>' +
+      '<div style="font-size:10px;font-style:italic;color:var(--muted);margin-top:6px">'+p.keyFeatures+'</div>' +
+      '</div>';
+  });
+  patH += '</div><div class="card2" style="padding:12px;overflow-x:auto"><table><thead><tr><th>Agente</th><th>Score</th><th>Incub.</th><th>Duración</th><th>Rasgos clave</th><th>Vehículos</th></tr></thead><tbody>';
+  pathScores.slice(0,10).forEach(function(p,i) {
+    patH += '<tr><td style="font-size:12px;font-weight:600;color:'+(i<3?'var(--accent)':'var(--text)')+'">'+p.short+'</td>' +
+      '<td><div style="display:flex;align-items:center;gap:6px"><div style="width:50px;height:5px;border-radius:3px;background:var(--border)"><div style="width:'+p.score+'%;height:100%;border-radius:3px;background:'+(i===0?'var(--accent)':'var(--accent2)')+'"></div></div><span class="mono" style="font-size:10px">'+p.score+'</span></div></td>' +
+      '<td class="mono" style="font-size:11px">'+p.incMin+'–'+p.incMax+'h</td>' +
+      '<td style="font-size:11px">'+p.duration+'</td>' +
+      '<td style="font-size:11px;max-width:170px">'+p.keyFeatures+'</td>' +
+      '<td style="font-size:11px">'+p.vehicles.slice(0,2).join(', ')+'</td></tr>';
+  });
+  patH += '</tbody></table></div>';
+  patCd.innerHTML = patH;
+  out.appendChild(patCd);
 
   showToast('Análisis completado ✓');
 }
 
-// ════════════════════════════════════════════════════════════
-// EXPORT EXCEL
-// ════════════════════════════════════════════════════════════
-function exportExcel(){
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([
+/* ════════════════════════════════════════════════════════════
+   EXPORT EXCEL
+════════════════════════════════════════════════════════════ */
+function exportExcel() {
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
     ['Campo','Valor'],['Evento',appData.event.name],['Fecha',appData.event.date],['Código',appData.event.code],
-    ['Modo',appData.mode==='simplified'?'Simplificado':'Avanzado'],
-    ['Total personas',appData.persons.length],['Total alimentos',appData.foods.length]
-  ]),'Evento');
-
-  if(appData.persons.length){
-    const simplified=isSimplified();
-    const hdr=['Persona','Incubación(h)',
-      ...(simplified?[]:['1er Síntoma']),
-      'Duración(h)',
-      ...appData.foods.map(f=>'[A]'+f),
-      ...(simplified?['Clínica toxinfección']:appData.symptoms.map(s=>'[S]'+s)),
-      'Notas'];
-    const rows=appData.persons.map(p=>{
-      const o=appData.outcomes[p]||{};
-      return [p,o.incubation||'',
-        ...(simplified?[]:[ o.firstSymptom||'' ]),
-        o.duration||'',
-        ...appData.foods.map(f=>(o.foods||[]).includes(f)?1:0),
-        ...(simplified
-          ? [(o.symptoms||[]).includes(SIMPLIFIED_SYMPTOM)?1:0]
-          : appData.symptoms.map(s=>(o.symptoms||[]).includes(s)?1:0)
-        ),
-        o.notes||''];
+    ['Modo',isSimp()?'Simplificado':'Avanzado'],['Total personas',appData.persons.length],['Total alimentos',appData.foods.length]
+  ]), 'Evento');
+  if (appData.persons.length) {
+    var simp=isSimp();
+    var hdr=['Persona','Incubación(h)'].concat(simp?[]:['1er Síntoma']).concat(['Duración(h)'])
+      .concat(appData.foods.map(function(f){return '[A]'+f;}))
+      .concat(simp?['Clínica toxinfección']:appData.symptoms.map(function(s){return '[S]'+s;}))
+      .concat(['Notas']);
+    var rows=appData.persons.map(function(p){
+      var o=appData.outcomes[p]||{};
+      return [p,o.incubation||''].concat(simp?[]:[ o.firstSymptom||'']).concat([o.duration||''])
+        .concat(appData.foods.map(function(f){return (o.foods||[]).indexOf(f)>=0?1:0;}))
+        .concat(simp?[(o.symptoms||[]).indexOf(SIMP_SYM)>=0?1:0]:appData.symptoms.map(function(s){return (o.symptoms||[]).indexOf(s)>=0?1:0;}))
+        .concat([o.notes||'']);
     });
-    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([hdr,...rows]),'Outcomes');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([hdr].concat(rows)), 'Outcomes');
   }
-
-  const cases=appData.persons.filter(p=>(appData.outcomes[p]?.symptoms||[]).length>0);
-  const nonCases=appData.persons.filter(p=>!(appData.outcomes[p]?.symptoms||[]).length);
-  if(appData.foods.length){
-    const fh=['Alimento','a(E+C)','b(E+NC)','c(NE+C)','d(NE+NC)','OR','OR_low','OR_high','RR','RR_low','RR_high','Chi2','p-valor','TA.Exp(%)'];
-    const fr=appData.foods.map(food=>{
-      const a=cases.filter(p=>(appData.outcomes[p]?.foods||[]).includes(food)).length;
-      const b=nonCases.filter(p=>(appData.outcomes[p]?.foods||[]).includes(food)).length;
-      const c2=cases.filter(p=>!(appData.outcomes[p]?.foods||[]).includes(food)).length;
-      const d=nonCases.filter(p=>!(appData.outcomes[p]?.foods||[]).includes(food)).length;
-      const s=calcOR_RR(a,b,c2,d);const ta=(a+b)>0?a/(a+b)*100:0;
-      return [food,a,b,c2,d,fmt(s.OR),fmt(s.orLow),fmt(s.orHigh),fmt(s.RR),fmt(s.rrLow),fmt(s.rrHigh),fmt(s.chi2),parseFloat(s.pval.toFixed(4)),fmt(ta,1)];
+  var cases=appData.persons.filter(function(p){return (appData.outcomes[p]?.symptoms||[]).length>0;});
+  var nonCases=appData.persons.filter(function(p){return !(appData.outcomes[p]?.symptoms||[]).length;});
+  if (appData.foods.length) {
+    var fh=['Alimento','a(E+C)','b(E+NC)','c(NE+C)','d(NE+NC)','OR','OR_low','OR_high','RR','RR_low','RR_high','Chi2','p-valor','TA.Exp(%)'];
+    var fr=appData.foods.map(function(food){
+      var a=cases.filter(function(p){return (appData.outcomes[p]?.foods||[]).indexOf(food)>=0;}).length;
+      var b=nonCases.filter(function(p){return (appData.outcomes[p]?.foods||[]).indexOf(food)>=0;}).length;
+      var c=cases.filter(function(p){return (appData.outcomes[p]?.foods||[]).indexOf(food)<0;}).length;
+      var d=nonCases.filter(function(p){return (appData.outcomes[p]?.foods||[]).indexOf(food)<0;}).length;
+      var s=calcOR(a,b,c,d); var ta=(a+b)>0?a/(a+b)*100:0;
+      return [food,a,b,c,d,fmt(s.OR),fmt(s.orL),fmt(s.orH),fmt(s.RR),fmt(s.rrL),fmt(s.rrH),fmt(s.chi2),parseFloat(s.pval.toFixed(4)),fmt(ta,1)];
     });
-    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([fh,...fr]),'Estadísticas Alimentos');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([fh].concat(fr)), 'Estadísticas');
   }
-  XLSX.writeFile(wb,`ToxiEvent_${appData.event.code||'brote'}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  XLSX.writeFile(wb, 'ToxiEvent_'+(appData.event.code||'brote')+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
   showToast('Excel exportado ✓');
 }
 
-// ════════════════════════════════════════════════════════════
-// EXPORT PDF — sin fondos oscuros, donut corregido,
-//              donut omitido en modo simplificado
-// ════════════════════════════════════════════════════════════
-async function exportPDF(){
-  showToast('Generando PDF completo…',8000);
-
-  // Forzar modo claro para captura de gráficos
-  const wasDark=document.documentElement.classList.contains('dark');
-  document.documentElement.classList.remove('dark');
-  await sleep(400);
-
-  const {jsPDF}=window.jspdf;
-  const doc=new jsPDF({orientation:'p',unit:'mm',format:'a4'});
-  const pw=doc.internal.pageSize.getWidth();   // 210
-  const ph=doc.internal.pageSize.getHeight();  // 297
-  const ml=15,mr=15,mTop=20;
-  let y=mTop;
-
-  const simplified=isSimplified(); // ── MODO SIMPLIFICADO ──
-
-  // ── PDF — CABECERA — SIN FONDO OSCURO ──
-  // Línea decorativa superior azul fina
-  doc.setFillColor(96,165,250); doc.rect(0,0,pw,4,'F');
-  doc.setFont('helvetica','bold'); doc.setFontSize(20); doc.setTextColor(30,60,130);
-  doc.text('ToxiEvent',ml,14);
-  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(80,100,160);
-  doc.text(`Informe de Análisis de Brote de Toxinfección Alimentaria · v1.2${simplified?' · Modo Simplificado':''}`,ml,20);
-  doc.setFontSize(8); doc.setTextColor(120,140,180);
-  doc.text(`Evento: ${appData.event.name||'—'} | Código: ${appData.event.code||'—'} | Fecha: ${appData.event.date||'—'}`,ml,26);
-  // Línea separadora
-  doc.setDrawColor(200,215,240); doc.setLineWidth(0.4); doc.line(ml,29,pw-mr,29);
-  y=36;
-
-  // ── PDF — helpers con fondo blanco / texto oscuro ──
-  const addSectionHeader=(title)=>{
-    if(y>272){doc.addPage();y=mTop;}
-    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(30,70,160);
-    doc.text(title,ml,y);
-    doc.setDrawColor(96,165,250); doc.setLineWidth(0.5); doc.line(ml,y+1.5,pw-mr,y+1.5);
-    y+=8;
-  };
-  const addText=(text,size=9,rgb=[60,80,130])=>{
-    doc.setFont('helvetica','normal'); doc.setFontSize(size); doc.setTextColor(...rgb);
-    const lines=doc.splitTextToSize(text,pw-ml-mr);
-    if(y+lines.length*4.5>283){doc.addPage();y=mTop;}
-    doc.text(lines,ml,y); y+=lines.length*4.5+1;
-  };
-  const tableHeader=(cols,widths,bgRGB=[220,230,248],textRGB=[40,70,150])=>{
-    if(y+8>283){doc.addPage();y=mTop;}
-    doc.setFillColor(...bgRGB); let tx=ml;
-    doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...textRGB);
-    cols.forEach((c,i)=>{ doc.rect(tx,y-4,widths[i],6,'F'); doc.text(String(c),tx+1,y); tx+=widths[i]; });
-    y+=3;
-  };
-  const tableRow=(vals,widths,isAlt,highlight=false,highlightRGB=[30,80,180])=>{
-    if(y+6>283){doc.addPage();y=mTop;}
-    // ── PDF sin fondo oscuro — filas alternadas con gris muy claro ──
-    if(isAlt){ doc.setFillColor(240,245,255); doc.rect(ml,y-3,pw-ml-mr,6,'F'); }
-    doc.setFont('helvetica','normal'); doc.setFontSize(7);
-    doc.setTextColor(...(highlight?highlightRGB:[60,80,120]));
-    let tx=ml;
-    vals.forEach((v,i)=>{ const lines=doc.splitTextToSize(String(v||''),widths[i]-1); doc.text(lines[0],tx+1,y); tx+=widths[i]; });
-    y+=5;
-  };
-
-  // ── Resumen ejecutivo ──
-  addSectionHeader('RESUMEN EJECUTIVO');
-  const cases=appData.persons.filter(p=>(appData.outcomes[p]?.symptoms||[]).length>0);
-  const nonCases=appData.persons.filter(p=>!(appData.outcomes[p]?.symptoms||[]).length);
-  const attackRate=appData.persons.length>0?(cases.length/appData.persons.length*100):0;
-  const incubations=cases.map(p=>parseFloat(appData.outcomes[p]?.incubation)).filter(x=>!isNaN(x)&&x>0).sort((a,b)=>a-b);
-  const medInc=median(incubations);
-  const meanInc=incubations.length?incubations.reduce((a,b2)=>a+b2,0)/incubations.length:null;
-  const mostImplicatedObj=getMostImplicatedFood(cases,nonCases);
-  const foodStats=appData.foods.map(food=>{
-    const a=cases.filter(p=>(appData.outcomes[p]?.foods||[]).includes(food)).length;
-    const b=nonCases.filter(p=>(appData.outcomes[p]?.foods||[]).includes(food)).length;
-    const c2=cases.filter(p=>!(appData.outcomes[p]?.foods||[]).includes(food)).length;
-    const d=nonCases.filter(p=>!(appData.outcomes[p]?.foods||[]).includes(food)).length;
-    const exposed=a+b;const ta=exposed>0?a/exposed*100:0;
-    return {food,...calcOR_RR(a,b,c2,d),exposed,attackAmongExposed:ta};
-  }).sort((a,b)=>b.OR-a.OR);
-  const symptomStats=appData.symptoms.map(sym=>{
-    const count=cases.filter(p=>(appData.outcomes[p]?.symptoms||[]).includes(sym)).length;
-    return {sym,count,pct:cases.length>0?count/cases.length*100:0};
-  }).sort((a,b)=>b.count-a.count);
-  const symFoodMatrix=simplified?[]:appData.symptoms.map(sym=>{
-    const best=appData.foods.map(food=>{
-      const a=cases.filter(p=>(appData.outcomes[p]?.symptoms||[]).includes(sym)&&(appData.outcomes[p]?.foods||[]).includes(food)).length;
-      const b=cases.filter(p=>(appData.outcomes[p]?.symptoms||[]).includes(sym)&&!(appData.outcomes[p]?.foods||[]).includes(food)).length;
-      const c=cases.filter(p=>!(appData.outcomes[p]?.symptoms||[]).includes(sym)&&(appData.outcomes[p]?.foods||[]).includes(food)).length;
-      const d=cases.filter(p=>!(appData.outcomes[p]?.symptoms||[]).includes(sym)&&!(appData.outcomes[p]?.foods||[]).includes(food)).length;
-      return {food,...calcOR_RR(a,b,c,d)};
-    }).sort((a,b)=>b.OR-a.OR)[0];
-    return {sym,bestFood:best};
+/* ════════════════════════════════════════════════════════════
+   EXPORT OUTCOMES CSV
+════════════════════════════════════════════════════════════ */
+function exportOutcomesCSV() {
+  var simp=isSimp();
+  var hdr=['Persona','Incubacion_h'].concat(simp?[]:['Primer_Sintoma']).concat(['Duracion_h'])
+    .concat(appData.foods.map(function(f){return 'Alim_'+f;}))
+    .concat(simp?['Clinica_TIA']:appData.symptoms.map(function(s){return 'Sint_'+s;}))
+    .concat(['Notas']);
+  var rows=appData.persons.map(function(p){
+    var o=appData.outcomes[p]||{};
+    return [p,o.incubation||''].concat(simp?[]:[ o.firstSymptom||'']).concat([o.duration||''])
+      .concat(appData.foods.map(function(f){return (o.foods||[]).indexOf(f)>=0?1:0;}))
+      .concat(simp?[(o.symptoms||[]).indexOf(SIMP_SYM)>=0?1:0]:appData.symptoms.map(function(s){return (o.symptoms||[]).indexOf(s)>=0?1:0;}))
+      .concat(['"'+((o.notes||'').replace(/"/g,'""'))+'"'])
+      .join(',');
   });
-  const pathogenScores=scorePathogens(meanInc,medInc,symptomStats,foodStats);
-
-  const modeLabel=simplified?'Simplificado (clínica de toxinfección)':'Avanzado (síntomas detallados)';
-  [
-    `• Modo de análisis: ${modeLabel}`,
-    `• Total personas expuestas: ${appData.persons.length}   Casos confirmados: ${cases.length}   No casos: ${nonCases.length}`,
-    `• Tasa de ataque global: ${attackRate.toFixed(1)}%`,
-    `• Mediana de incubación: ${medInc!==null?medInc+'h':'—'}   Rango: ${incubations.length?Math.min(...incubations).toFixed(1)+'–'+Math.max(...incubations).toFixed(1)+'h':'—'}`,
-    `• Alimento más implicado: ${mostImplicatedObj.food}${mostImplicatedObj.food!=='—'?` (OR=${fmt(mostImplicatedObj.OR)})`:''} `,
-    `• Agente más probable: ${pathogenScores[0]?.short||'—'} (score: ${pathogenScores[0]?.score||0}/100)`,
-    `• Síntoma más frecuente: ${symptomStats[0]?.sym||'—'} (${symptomStats[0]?.count||0} casos)`,
-    `• Generado: ${new Date().toLocaleString('es-ES')}`,
-  ].forEach(l=>addText(l,9));
-  y+=3;
-
-  // ── Curva epidémica ──
-  addSectionHeader('CURVA EPIDÉMICA');
-  const epiCanvas=document.getElementById('chart-epi');
-  if(epiCanvas&&epiCanvas.style.display!=='none'){
-    try {
-      const img=epiCanvas.toDataURL('image/png');
-      if(y+70>283){doc.addPage();y=mTop;}
-      doc.addImage(img,'PNG',ml,y,pw-ml-mr,60); y+=65;
-      const epiCurveData=buildEpiCurveData(cases);
-      const epiClass=epiCurveData?classifyEpiCurve(incubations,medInc):null;
-      if(epiClass) addText(`Tipo: ${epiClass.type}. ${epiClass.desc}`,8,[80,100,150]);
-    } catch(e){ addText('[Gráfico no disponible]',8,[180,60,60]); }
-  } else addText('Sin datos de incubación para la curva epidémica.',8,[120,140,180]);
-  y+=4;
-
-  // ── MODO SIMPLIFICADO — donut solo en modo avanzado ──
-  if(!simplified){
-    addSectionHeader('DISTRIBUCIÓN DE SÍNTOMAS EN CASOS');
-    const donutCanvas=document.getElementById('chart-donut');
-    if(donutCanvas){
-      try {
-        const img=donutCanvas.toDataURL('image/png');
-        const dw=80,dh=70;
-        if(y+dh+5>283){doc.addPage();y=mTop;}
-        // Centrado con espacio lateral para leyenda legible
-        doc.addImage(img,'PNG',ml,y,pw-ml-mr,dh);
-        y+=dh+4;
-      } catch(e){ addText('[Gráfico no disponible]',8,[180,60,60]); }
-    }
-    y+=3;
-  }
-
-  // ── Tabla Outcomes completa ──
-  addSectionHeader('TABLA DE OUTCOMES INDIVIDUALES');
-  if(appData.persons.length){
-    const tCols=simplified
-      ? ['Persona','Incub.(h)','Dur.(h)','Alimentos consumidos','Clínica TIA','Notas']
-      : ['Persona','Incub.(h)','1er Sint.','Dur.(h)','Alimentos consumidos','Síntomas presentados','Notas'];
-    const tWidths=simplified
-      ? [35,14,14,50,18,49]
-      : [28,12,22,12,38,38,30];
-    const drawTH=()=>{ tableHeader(tCols,tWidths); };
-    drawTH();
-    appData.persons.forEach((p,ri)=>{
-      const o=appData.outcomes[p]||{};
-      const isCaseRow=simplified
-        ? (o.symptoms||[]).includes(SIMPLIFIED_SYMPTOM)
-        : (o.symptoms||[]).length>0;
-      const row=simplified
-        ? [p,o.incubation||'',o.duration||'',(o.foods||[]).join(', ')||'—',isCaseRow?'Sí':'No',o.notes||'']
-        : [p,o.incubation||'',o.firstSymptom||'',o.duration||'',(o.foods||[]).join(', ')||'—',(o.symptoms||[]).join(', ')||'—',o.notes||''];
-      if(y+6>283){doc.addPage();y=mTop;drawTH();}
-      tableRow(row,tWidths,ri%2===0,isCaseRow,isCaseRow?[20,80,200]:[60,80,120]);
-    });
-    y+=4;
-  }
-
-  // ── Tabla tasas de ataque ──
-  if(foodStats.length){
-    addSectionHeader('TASAS DE ATAQUE POR ALIMENTO');
-    const c2=['Alimento','N exp.','Casos exp.','TA exp.(%)','Casos no exp.','TA no exp.(%)'];
-    const w2=[48,18,20,22,22,22];
-    tableHeader(c2,w2);
-    foodStats.forEach((f,ri)=>{
-      const tacNE=f.c+f.d>0?f.c/(f.c+f.d)*100:0;
-      tableRow([f.food,f.exposed,f.a,fmt(f.attackAmongExposed,1)+'%',f.c,fmt(tacNE,1)+'%'],w2,ri%2===0,f.pval<.05);
-    });
-    y+=4;
-  }
-
-  // ── Tabla OR/RR ──
-  if(foodStats.length){
-    addSectionHeader('ESTADÍSTICA DE ASOCIACIÓN (OR, RR, χ², p-VALOR)');
-    addText('a=exp+caso, b=exp+nocaso, c=noexp+caso, d=noexp+nocaso. Corrección Haldane-Anscombe. *p<0.05',7,[100,120,160]);
-    const c3=['Alimento','a','b','c','d','OR [IC95%]','RR [IC95%]','χ²','p-valor'];
-    const w3=[38,8,8,8,8,38,38,12,24];
-    tableHeader(c3,w3);
-    foodStats.forEach((f,ri)=>{
-      tableRow([f.food,f.a,f.b,f.c,f.d,`${fmt(f.OR)} [${fmt(f.orLow)}–${fmt(f.orHigh)}]`,`${fmt(f.RR)} [${fmt(f.rrLow)}–${fmt(f.rrHigh)}]`,fmt(f.chi2),pFmt(f.pval)],w3,ri%2===0,f.pval<.05);
-    });
-    y+=4;
-  }
-
-  // ── MODO SIMPLIFICADO — tabla síntoma×alimento solo en avanzado ──
-  if(!simplified&&symFoodMatrix.some(s=>s.bestFood)){
-    addSectionHeader('ALIMENTO MÁS PROBABLE POR SÍNTOMA');
-    const c4=['Síntoma','Alimento más probable','OR','IC 95%','p-valor'];
-    const w4=[40,50,18,34,30];
-    tableHeader(c4,w4);
-    symFoodMatrix.forEach((s,ri)=>{
-      if(!s.bestFood) return;
-      tableRow([s.sym,s.bestFood.food,fmt(s.bestFood.OR),`[${fmt(s.bestFood.orLow)}–${fmt(s.bestFood.orHigh)}]`,pFmt(s.bestFood.pval)],w4,ri%2===0,s.bestFood.pval<.05);
-    });
-    y+=4;
-  }
-
-  // ── Agentes causales ──
-  addSectionHeader('AGENTE CAUSAL MÁS PROBABLE — RANKING');
-  pathogenScores.slice(0,8).forEach((p,i)=>{
-    if(y+13>283){doc.addPage();y=mTop;}
-    // Destacar el primero con fondo muy suave
-    if(i===0){ doc.setFillColor(230,240,255); doc.rect(ml,y-4,pw-ml-mr,13,'F'); }
-    doc.setFont('helvetica','bold'); doc.setFontSize(9);
-    doc.setTextColor(i===0?20:80, i===0?80:100, i===0?200:150);
-    doc.text(`${i+1}. ${p.short}  (Score: ${p.score}/100)`,ml+2,y);
-    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(80,100,150);
-    doc.text(`Incub: ${p.incMin}–${p.incMax}h | Dur: ${p.duration} | ${p.keyFeatures}`,ml+2,y+5);
-    y+=12;
-  });
-  y+=4;
-
-  // ── Pie de página en todas las páginas — SIN FONDO OSCURO ──
-  const totalPages=doc.internal.getNumberOfPages();
-  for(let pg=1;pg<=totalPages;pg++){
-    doc.setPage(pg);
-    // Línea fina superior del pie
-    doc.setDrawColor(200,215,240); doc.setLineWidth(0.3); doc.line(ml,ph-14,pw-mr,ph-14);
-    doc.setFont('helvetica','normal'); doc.setFontSize(6.5); doc.setTextColor(120,140,180);
-    doc.text('José Manuel Fernández Carreira y el equipo de Vigilancia Epidemiológica: Fernando Alonso  · Sara Iglesias · Carlos Lasanta · Maria · Ana Fernández ·  Consejería de Salud · Principado de Asturias',ml,ph-9);
-    doc.text(`Pág. ${pg}/${totalPages} · ${new Date().toLocaleString('es-ES')}`,pw-mr,ph-9,{align:'right'});
-  }
-
-  // Restaurar modo
-  if(wasDark) document.documentElement.classList.add('dark');
-
-  doc.save(`ToxiEvent_${appData.event.code||'brote'}_${new Date().toISOString().slice(0,10)}.pdf`);
-  showToast('PDF exportado ✓');
-}
-
-// ════════════════════════════════════════════════════════════
-// EXPORT OUTCOMES CSV
-// ════════════════════════════════════════════════════════════
-function exportOutcomesCSV(){
-  const simplified=isSimplified();
-  const hdr=['Persona','Incubacion_h',
-    ...(simplified?[]:['Primer_Sintoma']),
-    'Duracion_h',
-    ...appData.foods.map(f=>'Alim_'+f),
-    ...(simplified?['Clinica_TIA']:appData.symptoms.map(s=>'Sint_'+s)),
-    'Notas'];
-  const rows=appData.persons.map(p=>{
-    const o=appData.outcomes[p]||{};
-    return [p,o.incubation||'',
-      ...(simplified?[]:[ o.firstSymptom||'' ]),
-      o.duration||'',
-      ...appData.foods.map(f=>(o.foods||[]).includes(f)?1:0),
-      ...(simplified
-        ? [(o.symptoms||[]).includes(SIMPLIFIED_SYMPTOM)?1:0]
-        : appData.symptoms.map(s=>(o.symptoms||[]).includes(s)?1:0)
-      ),
-      `"${(o.notes||'').replace(/"/g,'""')}"`
-    ].join(',');
-  });
-  const csv=[hdr.join(','),...rows].join('\n');
-  const a=document.createElement('a');
+  var csv=[hdr.join(',')].concat(rows).join('\n');
+  var a=document.createElement('a');
   a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
-  a.download=`ToxiEvent_outcomes_${new Date().toISOString().slice(0,10)}.csv`;
+  a.download='ToxiEvent_outcomes_'+new Date().toISOString().slice(0,10)+'.csv';
   a.click(); showToast('CSV exportado ✓');
 }
 
-// ════════════════════════════════════════════════════════════
-// INIT
-// ════════════════════════════════════════════════════════════
-document.addEventListener('DOMContentLoaded', loadData);
+/* ════════════════════════════════════════════════════════════
+   EXPORT PDF
+════════════════════════════════════════════════════════════ */
+async function exportPDF() {
+  showToast('Generando PDF…', 8000);
+  var wasDark = document.documentElement.classList.contains('dark');
+  document.documentElement.classList.remove('dark');
+  await sleep(400);
+
+  var jsPDF = window.jspdf.jsPDF;
+  var doc = new jsPDF({orientation:'p',unit:'mm',format:'a4'});
+  var pw=doc.internal.pageSize.getWidth(), ph=doc.internal.pageSize.getHeight();
+  var ml=15, mr=15, mTop=20, y=mTop;
+  var simp = isSimp();
+
+  // Cabecera
+  doc.setFillColor(140,212,245); doc.rect(0,0,pw,4,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(20); doc.setTextColor(15,23,42);
+  doc.text('ToxiEvent',ml,14);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(71,85,105);
+  doc.text('Informe de Análisis de Brote · v1.3'+(simp?' · Modo Simplificado':''),ml,20);
+  doc.setFontSize(8); doc.setTextColor(100,120,160);
+  doc.text('Evento: '+(appData.event.name||'—')+' | Código: '+(appData.event.code||'—')+' | Fecha: '+(appData.event.date||'—'),ml,26);
+  doc.setDrawColor(200,220,240); doc.setLineWidth(.4); doc.line(ml,29,pw-mr,29);
+  y=36;
+
+  function addSH(title) {
+    if (y>272){doc.addPage();y=mTop;}
+    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(15,80,160);
+    doc.text(title,ml,y);
+    doc.setDrawColor(140,212,245); doc.setLineWidth(.5); doc.line(ml,y+1.5,pw-mr,y+1.5);
+    y+=8;
+  }
+  function addTxt(text, size, rgb) {
+    size=size||9; rgb=rgb||[60,80,120];
+    doc.setFont('helvetica','normal'); doc.setFontSize(size); doc.setTextColor(rgb[0],rgb[1],rgb[2]);
+    var lines=doc.splitTextToSize(text,pw-ml-mr);
+    if (y+lines.length*4.5>283){doc.addPage();y=mTop;}
+    doc.text(lines,ml,y); y+=lines.length*4.5+1;
+  }
+  function tblH(cols, widths) {
+    if (y+8>283){doc.addPage();y=mTop;}
+    doc.setFillColor(220,232,250); var tx=ml;
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(20,60,150);
+    cols.forEach(function(c,i){ doc.rect(tx,y-4,widths[i],6,'F'); doc.text(String(c),tx+1,y); tx+=widths[i]; });
+    y+=3;
+  }
+  function tblR(vals, widths, isAlt, hl) {
+    if (y+6>283){doc.addPage();y=mTop;}
+    if (isAlt){ doc.setFillColor(242,246,255); doc.rect(ml,y-3,pw-ml-mr,6,'F'); }
+    doc.setFont('helvetica','normal'); doc.setFontSize(7);
+    doc.setTextColor.apply(doc, hl ? [10,70,190] : [50,70,110]);
+    var tx=ml;
+    vals.forEach(function(v,i){ var l=doc.splitTextToSize(String(v||''),widths[i]-1); doc.text(l[0],tx+1,y); tx+=widths[i]; });
+    y+=5;
+  }
+
+  // Recalcular datos
+  var cases=appData.persons.filter(function(p){return (appData.outcomes[p]?.symptoms||[]).length>0;});
+  var nonCases=appData.persons.filter(function(p){return !(appData.outcomes[p]?.symptoms||[]).length;});
+  var attackRate=appData.persons.length>0?(cases.length/appData.persons.length*100):0;
+  var incubations=cases.map(function(p){return parseFloat(appData.outcomes[p]?.incubation);}).filter(function(x){return !isNaN(x)&&x>0;}).sort(function(a,b){return a-b;});
+  var medInc=median(incubations);
+  var meanInc=incubations.length?incubations.reduce(function(a,b){return a+b;},0)/incubations.length:null;
+  var mostImpl=getMostImplicated(cases,nonCases);
+  var foodStats=appData.foods.map(function(food){
+    var a=cases.filter(function(p){return (appData.outcomes[p]?.foods||[]).indexOf(food)>=0;}).length;
+    var b=nonCases.filter(function(p){return (appData.outcomes[p]?.foods||[]).indexOf(food)>=0;}).length;
+    var c=cases.filter(function(p){return (appData.outcomes[p]?.foods||[]).indexOf(food)<0;}).length;
+    var d=nonCases.filter(function(p){return (appData.outcomes[p]?.foods||[]).indexOf(food)<0;}).length;
+    var exposed=a+b; var ta=exposed>0?a/exposed*100:0;
+    return Object.assign({food:food,exposed:exposed,attackAmongExposed:ta},calcOR(a,b,c,d));
+  }).sort(function(a,b){return b.OR-a.OR;});
+  var symptomStats=appData.symptoms.map(function(sym){
+    var count=cases.filter(function(p){return (appData.outcomes[p]?.symptoms||[]).indexOf(sym)>=0;}).length;
+    return {sym:sym,count:count,pct:cases.length>0?count/cases.length*100:0};
+  }).sort(function(a,b){return b.count-a.count;});
+  var symFoodMatrix=simp?[]:appData.symptoms.map(function(sym){
+    var best=appData.foods.map(function(food){
+      var a=cases.filter(function(p){return (appData.outcomes[p]?.symptoms||[]).indexOf(sym)>=0&&(appData.outcomes[p]?.foods||[]).indexOf(food)>=0;}).length;
+      var b=cases.filter(function(p){return (appData.outcomes[p]?.symptoms||[]).indexOf(sym)>=0&&(appData.outcomes[p]?.foods||[]).indexOf(food)<0;}).length;
+      var c=cases.filter(function(p){return (appData.outcomes[p]?.symptoms||[]).indexOf(sym)<0&&(appData.outcomes[p]?.foods||[]).indexOf(food)>=0;}).length;
+      var d=cases.filter(function(p){return (appData.outcomes[p]?.symptoms||[]).indexOf(sym)<0&&(appData.outcomes[p]?.foods||[]).indexOf(food)<0;}).length;
+      return Object.assign({food:food},calcOR(a,b,c,d));
+    }).sort(function(a,b){return b.OR-a.OR;})[0];
+    return {sym:sym,best:best};
+  });
+  var pathScores=scorePathogens(meanInc,medInc,symptomStats,foodStats);
+  var epiData=buildEpiData(cases);
+  var epiClass=epiData?classifyEpi(incubations,medInc):null;
+
+  addSH('RESUMEN EJECUTIVO');
+  ['• Modo: '+(simp?'Simplificado':'Avanzado'),
+   '• Total personas: '+appData.persons.length+'   Casos: '+cases.length+'   No casos: '+nonCases.length,
+   '• Tasa de ataque: '+attackRate.toFixed(1)+'%',
+   '• Mediana incubación: '+(medInc!==null?medInc+'h':'—')+'   Rango: '+(incubations.length?Math.min.apply(null,incubations).toFixed(1)+'–'+Math.max.apply(null,incubations).toFixed(1)+'h':'—'),
+   '• Alimento más implicado: '+mostImpl.food+(mostImpl.OR?' (OR='+fmt(mostImpl.OR)+')':''),
+   '• Agente más probable: '+(pathScores[0]?pathScores[0].short:'—')+' (score: '+(pathScores[0]?pathScores[0].score:0)+'/100)',
+   '• Generado: '+new Date().toLocaleString('es-ES')
+  ].forEach(function(l){addTxt(l,9);}); y+=3;
+
+  // Curva epidémica
+  addSH('CURVA EPIDÉMICA');
+  var epiCvs=document.getElementById('ch-epi');
+  if (epiCvs) {
+    try { var img=epiCvs.toDataURL('image/png'); if(y+70>283){doc.addPage();y=mTop;} doc.addImage(img,'PNG',ml,y,pw-ml-mr,60); y+=65;
+      if (epiClass) addTxt('Tipo: '+epiClass.type+'. '+epiClass.desc,8,[70,100,140]); }
+    catch(err) { addTxt('[Gráfico no disponible]',8,[180,60,60]); }
+  } else addTxt('Sin datos de incubación.',8,[120,140,180]); y+=4;
+
+  if (!simp) {
+    addSH('DISTRIBUCIÓN DE SÍNTOMAS');
+    var donutCvs=document.getElementById('ch-donut');
+    if (donutCvs) { try { var dimg=donutCvs.toDataURL('image/png'); if(y+75>283){doc.addPage();y=mTop;} doc.addImage(dimg,'PNG',ml,y,pw-ml-mr,70); y+=74; } catch(err){ addTxt('[Gráfico no disponible]',8,[180,60,60]); } } y+=3;
+  }
+
+  addSH('TABLA DE OUTCOMES INDIVIDUALES');
+  if (appData.persons.length) {
+    var tCols=simp?['Persona','Incub.','Dur.','Alimentos','Clínica TIA','Notas']:['Persona','Incub.','1er Sint.','Dur.','Alimentos','Síntomas','Notas'];
+    var tW=simp?[35,14,14,52,16,49]:[28,12,22,12,38,38,30];
+    var dTH=function(){tblH(tCols,tW);};
+    dTH();
+    appData.persons.forEach(function(p,ri){
+      var o=appData.outcomes[p]||{};
+      var isCaseRow=simp?(o.symptoms||[]).indexOf(SIMP_SYM)>=0:(o.symptoms||[]).length>0;
+      var row=simp?[p,o.incubation||'',o.duration||'',(o.foods||[]).join(', ')||'—',isCaseRow?'Sí':'No',o.notes||'']
+              :[p,o.incubation||'',o.firstSymptom||'',o.duration||'',(o.foods||[]).join(', ')||'—',(o.symptoms||[]).join(', ')||'—',o.notes||''];
+      if (y+6>283){doc.addPage();y=mTop;dTH();}
+      tblR(row,tW,ri%2===0,isCaseRow);
+    }); y+=4;
+  }
+
+  if (foodStats.length) {
+    addSH('TASAS DE ATAQUE'); var c2=['Alimento','N exp.','Casos exp.','TA exp.(%)','Casos no exp.','TA no exp.(%)'],w2=[48,18,20,22,22,22];
+    tblH(c2,w2); foodStats.forEach(function(f,ri){ var tacNE=f.c+f.d>0?f.c/(f.c+f.d)*100:0; tblR([f.food,f.exposed,f.a,fmt(f.attackAmongExposed,1)+'%',f.c,fmt(tacNE,1)+'%'],w2,ri%2===0,f.pval<.05); }); y+=4;
+    addSH('ESTADÍSTICA DE ASOCIACIÓN (OR, RR, χ², p)');
+    addTxt('Corrección Haldane-Anscombe. *p<0.05',7,[90,110,150]);
+    var c3=['Alimento','a','b','c','d','OR [IC95%]','RR [IC95%]','χ²','p'],w3=[38,8,8,8,8,36,36,12,24];
+    tblH(c3,w3); foodStats.forEach(function(f,ri){ tblR([f.food,f.a,f.b,f.c,f.d,fmt(f.OR)+' ['+fmt(f.orL)+'–'+fmt(f.orH)+']',fmt(f.RR)+' ['+fmt(f.rrL)+'–'+fmt(f.rrH)+']',fmt(f.chi2),pFmt(f.pval)],w3,ri%2===0,f.pval<.05); }); y+=4;
+  }
+
+  if (!simp && symFoodMatrix.some(function(s){return s.best;})) {
+    addSH('ALIMENTO MÁS PROBABLE POR SÍNTOMA');
+    var c4=['Síntoma','Alimento más probable','OR','IC 95%','p-valor'],w4=[40,50,18,34,30];
+    tblH(c4,w4); symFoodMatrix.forEach(function(s,ri){ if(!s.best) return; tblR([s.sym,s.best.food,fmt(s.best.OR),'['+fmt(s.best.orL)+'–'+fmt(s.best.orH)+']',pFmt(s.best.pval)],w4,ri%2===0,s.best.pval<.05); }); y+=4;
+  }
+
+  addSH('AGENTE CAUSAL MÁS PROBABLE');
+  pathScores.slice(0,8).forEach(function(p,i){
+    if (y+13>283){doc.addPage();y=mTop;}
+    if (i===0){ doc.setFillColor(230,242,255); doc.rect(ml,y-4,pw-ml-mr,13,'F'); }
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(i===0?10:70, i===0?80:95, i===0?200:150);
+    doc.text((i+1)+'. '+p.short+'  (Score: '+p.score+'/100)',ml+2,y);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(70,90,140);
+    doc.text('Incub: '+p.incMin+'–'+p.incMax+'h | Dur: '+p.duration+' | '+p.keyFeatures,ml+2,y+5);
+    y+=12;
+  }); y+=4;
+
+  var totalPages=doc.internal.getNumberOfPages();
+  for (var pg=1;pg<=totalPages;pg++) {
+    doc.setPage(pg);
+    doc.setDrawColor(200,220,240); doc.setLineWidth(.3); doc.line(ml,ph-14,pw-mr,ph-14);
+    doc.setFont('helvetica','normal'); doc.setFontSize(6.5); doc.setTextColor(100,120,170);
+    doc.text('Dr. José Manuel Fernández Carreira · Servicio de Vigilancia Epidemiológica · Consejería de Salud · Asturias · 2026',ml,ph-9);
+    doc.text('Pág. '+pg+'/'+totalPages+' · '+new Date().toLocaleString('es-ES'),pw-mr,ph-9,{align:'right'});
+  }
+
+  if (wasDark) document.documentElement.classList.add('dark');
+  doc.save('ToxiEvent_'+(appData.event.code||'brote')+'_'+new Date().toISOString().slice(0,10)+'.pdf');
+  showToast('PDF exportado ✓');
+}
+
+/* ════════════════════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', function() {
+  loadFromStorage();
+});
 </script>
 </body>
 </html>
